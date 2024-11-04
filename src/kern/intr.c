@@ -5,6 +5,7 @@
 #include "trap.h"
 #include "halt.h"
 #include "csr.h"
+#include "plic.h"
 
 #include <stddef.h>
 
