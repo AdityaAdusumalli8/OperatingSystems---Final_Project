@@ -1,6 +1,6 @@
 #include "fs.h"
-#include "vioblk.h"
 #include "io.h"
+#include "vioblk.c"
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
@@ -10,7 +10,7 @@
 #define MAX_FILES 32
 #define FD_USED 1
 
-// Create file descriptor struct
+// Create file descriptor struct`
 typedef struct file_desc
 {
     struct io_intf io;
@@ -33,6 +33,13 @@ void fs_init(void)
         mountedIO = NULL;
     }
 }
+
+static const struct io_ops fs_io_ops = {
+    .close = fs_close,
+    .read = fs_read,
+    .write = fs_write,
+    .ctl = fs_ioctl,
+};
 
 /*
 Inputs: *io - Pointer to struct representing blockdevice
@@ -98,10 +105,7 @@ int fs_open(const char *name, struct io_intf **io){
     // Initialize file descriptpr:
     file_desc_t *newFileDescriptor = &fileDescriptorsArray[availablefdIndex];
     // Set the io_intf interface with function pointers for various file operations.
-    newFileDescriptor->io.read = fs_read;   
-    newFileDescriptor->io.write = fs_write; 
-    newFileDescriptor->io.close = fs_close; 
-    newFileDescriptor->io.ioctl = fs_ioctl;
+    newFileDescriptor->io.ops = &fs_io_ops;
 
     // Modify pointer to contain the io_intf structure of the opened file
     *io = &(newFileDescriptor->io);
@@ -132,10 +136,7 @@ void fs_close(struct io_intf *io)
             fileDescriptorsArray[i].flags = 0; // Mark as unused
 
             // Set the io_intf function pointers to null
-            fileDescriptorsArray[i].io.read = NULL;
-            fileDescriptorsArray[i].io.write = NULL;
-            fileDescriptorsArray[i].io.close = NULL;
-            fileDescriptorsArray[i].io.ioctl = NULL;
+            fileDescriptorsArray[i].io.ops = NULL;
 
             return; 
         }
