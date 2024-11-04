@@ -7,6 +7,8 @@
 #define LOAD_LOCATION 0x80100000
 #define LOAD_END      0x81000000
 
+#define EI_NIDENT 16
+
 #define PT_LOAD    1  /* program header type */
 
 #define ET_EXEC   2   /* executable type */
@@ -21,7 +23,7 @@
 
 #define ELFDATA2LSB	1		/* e_ident[EI_DATA] */
 
-struct elf64_hdr {
+typedef struct elf64_hdr {
   unsigned char	e_ident[EI_NIDENT];	/* ELF "magic number" */
   uint16_t e_type;
   uint16_t e_machine;
@@ -36,25 +38,25 @@ struct elf64_hdr {
   uint16_t e_shentsize;
   uint16_t e_shnum;
   uint16_t e_shstrndx;
-};
+} Elf64_Ehdr;
 
-struct elf64_phdr {
-    uint32_t   p_type;
-    uint32_t   p_flags;
-    uint64_t   p_offset;
-    uint64_t   p_vaddr;
-    uint64_t   p_paddr;
-    uint64_t   p_filesz;
-    uint64_t   p_memsz;
-    uint64_t   p_align;
-};
+typedef struct elf64_phdr {
+  uint32_t p_type;
+  uint32_t p_flags;
+  uint64_t p_offset;		/* Segment file offset */
+  uint64_t p_vaddr;		/* Segment virtual address */
+  uint64_t p_paddr;		/* Segment physical address */
+  uint32_t p_filesz;		/* Segment size in file */
+  uint32_t p_memsz;		/* Segment size in memory */
+  uint32_t p_align;		/* Segment alignment, file & memory */
+} Elf64_Phdr;
 
 int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)){
     struct elf64_hdr *hdr;
-    long bytes_read = ioread(io, hdr, sizeof(elf64_hdr));
+    long bytes_read = ioread(io, hdr, sizeof(Elf64_Ehdr));
     //Ensure we read the whole header
     if(bytes_read < sizeof(hdr)){
-      return -1000 + bytes_read - sizeof(elf64_hdr);
+      return -1000 + bytes_read - sizeof(Elf64_Ehdr);
     }
 
     // Check ELF ident chars
@@ -94,14 +96,14 @@ int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)){
     // Loop program headers
     struct elf64_phdr *phdr;
     uint8_t *memptr = LOAD_LOCATION;
-    for(int idx = 0; idx < e_phnum; idx++){
+    for(int idx = 0; idx < hdr->e_phnum; idx++){
       // Move io object to point to program header
-      ioseek(io, idx * e_phentsize + e_phoff)
+      ioseek(io, idx * hdr->e_phentsize + hdr->e_phoff);
       // Read program header into phdr
-      long bytes_read = ioread(io, phdr, sizeof(elf64_phdr));
+      long bytes_read = ioread(io, phdr, sizeof(Elf64_Phdr));
       // Ensure we read the whole header
       if(bytes_read < sizeof(hdr)){
-        return -100 + bytes_read - sizeof(elf64_phdr);
+        return -100 + bytes_read - sizeof(Elf64_Phdr);
       }
       // Ensure that the data is loadable into memory
       if(phdr->p_type != PT_LOAD){
@@ -115,7 +117,7 @@ int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)){
       }
 
       // Move io object to point to the data to copy
-      ioseek(io, p_offset);
+      ioseek(io, phdr->p_offset);
 
       // Read data from io object into memory at mem pointer
       ioread(io, phdr->p_vaddr, phdr->p_filesz);
