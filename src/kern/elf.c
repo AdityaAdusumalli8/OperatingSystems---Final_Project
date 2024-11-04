@@ -7,6 +7,8 @@
 #define LOAD_LOCATION 0x80100000
 #define LOAD_END      0x81000000
 
+#define PT_LOAD    1  /* program header type */
+
 #define ET_EXEC   2   /* executable type */
 #define EM_RISCV	243	/* RISC-V */
 
@@ -91,16 +93,39 @@ int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)){
 
     // Loop program headers
     struct elf64_phdr *phdr;
+    uint8_t *memptr = LOAD_LOCATION;
     for(int idx = 0; idx < e_phnum; idx++){
+      // Move io object to point to program header
       ioseek(io, idx * e_phentsize + e_phoff)
+      // Read program header into phdr
       long bytes_read = ioread(io, phdr, sizeof(elf64_phdr));
-      //Ensure we read the whole header
+      // Ensure we read the whole header
       if(bytes_read < sizeof(hdr)){
         return -100 + bytes_read - sizeof(elf64_phdr);
       }
+      // Ensure that the data is loadable into memory
+      if(phdr->p_type != PT_LOAD){
+        continue;
+      }
 
+      // Bounds checking
+      if(phdr->p_vaddr < LOAD_LOCATION || phdr->p_vaddr + phdr->p_memsz >= LOAD_END){
+        // Out of bounds error!
+        return -8;
+      }
 
+      // Move io object to point to the data to copy
+      ioseek(io, p_offset);
 
+      // Read data from io object into memory at mem pointer
+      ioread(io, phdr->p_vaddr, phdr->p_filesz);
+      memptr = phdr->p_vaddr + phdr->p_filesz;
+
+      // Fill up rest of memory with zeroes
+      for(int extra = 0; extra < (phdr->p_memsz - phdr->p_filesz); extra++){
+        *memptr = 0;
+        memptr += 1;
+      }
     }
 
     return 0;
