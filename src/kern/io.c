@@ -69,81 +69,133 @@ long iowrite(struct io_intf * io, const void * buf, unsigned long n) {
 //           It should set up all fields within the io_lit struct so that I/O operations can be performed on the io_lit
 //           through the io_intf interface. This function should return a pointer to an io_intf object that can be used 
 //           to perform I/O operations on the device.
-struct io_intf * iolit_init (
-    struct io_lit * lit, void * buf, size_t size)
-{
+
+/**
+ * Name: iolit_init
+ * 
+ * Inputs:
+ *  struct io_lit *     -> lit
+ *  void *              -> buf
+ *  size_t              -> size
+ * 
+ * Outputs:
+ *  struct io_intf *    -> io
+ * 
+ * Purpose:
+ *  The purpose of this function is to initialize a block that allows you to perform normal IO operations
+ *  on a block of memory.
+ * 
+ * Side effects:
+ *  There are no significant side effects of the function besides accessing lit's registers.
+ */
+struct io_intf * iolit_init (struct io_lit * lit, void * buf, size_t size) {
     //           Implement me!
     static const struct io_ops ops = {
         .read = iolit_read,
         .write = iolit_write,
-        .ctl = iolit_ioctl};
+        .ctl = iolit_ioctl
+    };
 
-        lit->io_intf.ops = &ops;
-        lit->buf= buf;
-        lit->size = size;
-        lit->pos = 0;
+    lit->io_intf.ops = &ops;
+    lit->buf= buf;
+    lit->size = size;
+    lit->pos = 0;
 
-        return &lit->io_intf;
+    return &lit->io_intf;
 }
 
-static long iolit_read(struct io_intf *io, void *buf, size_t len)
-{
+/**
+ * Name: iolit_read
+ * 
+ * Inputs:
+ *  struct io_intf *    -> io
+ *  void *              -> buf
+ *  size_t              -> len
+ * 
+ * Outputs:
+ *  long                -> bytes read
+ *  
+ * Purpose:
+ *  The purpose of this function is to read the specified number of bytes from the device into
+ *  the buffer.
+ * 
+ * Side effects:
+ *  We are modifying whatever the buffer is pointing to, meaning we could change data erroneously.
+ */
+static long iolit_read(struct io_intf *io, void *buf, size_t len) {
     size_t read_offset = offsetof(struct io_lit, io_intf);
     char * lit_baseAdd = (char *)io - read_offset;
     struct io_lit *lit = (struct io_lit *)lit_baseAdd;
 
     size_t file_size_left = lit->size - lit->pos;
     size_t bytes_left_read;
-    if (len > file_size_left){
+    if (len > file_size_left)
         bytes_left_read = file_size_left;
-    }else{
+    else
         bytes_left_read = len;
-    }
+    
     memcpy(buf, (char *)lit->buf + lit->pos, bytes_left_read);
     lit->pos += bytes_left_read;
     return bytes_left_read;
 }
 
-static long iolit_write(struct io_intf *io, const void *buf, size_t len){
+/**
+ * Name: iolit_write
+ * 
+ * Inputs:
+ *  struct io_intf *    -> io
+ *  const void *        -> buf
+ *  size_t              -> len
+ * 
+ * Outputs:
+ *  long                -> bytes written
+ * 
+ * Purpose:
+ *  The purpose of this function is to write what is in the buffer to the device.
+ * 
+ * Side effects:
+ *  We are writing whatever is in the buffer, which is just a pointer so it could point to
+ *  somewhere that is incorrect.
+ */
+static long iolit_write(struct io_intf *io, const void *buf, size_t len) {
     size_t write_offset = offsetof(struct io_lit, io_intf); 
     char *lit_baseAdd = (char *)io - write_offset;         
     struct io_lit *lit = (struct io_lit *)lit_baseAdd;
 
     size_t file_size_left = lit->size - lit->pos;
     size_t bytes_left_write;
-    if (len > file_size_left){
+    if (len > file_size_left)
         bytes_left_write = file_size_left;
-    }
-    else{
+    else
         bytes_left_write = len;
-    }
+
     memcpy((char *)lit->buf + lit->pos, buf, bytes_left_write);
     lit->pos += bytes_left_write;
     return bytes_left_write;
 }
 
-static int iolit_ioctl(struct io_intf *io, int cmd, void *arg){
+/**
+ * 
+ */
+static int iolit_ioctl(struct io_intf *io, int cmd, void *arg) {
     size_t ctrl_offset = offsetof(struct io_lit, io_intf); 
     char *lit_baseAdd = (char *)io - ctrl_offset;          
     struct io_lit *lit = (struct io_lit *)lit_baseAdd;
 
-    if (cmd == IOCTL_GETPOS){
+    if (cmd == IOCTL_GETPOS) {
         *(size_t *)arg = lit->pos;
         return 0;
-    }
-    else if (cmd == IOCTL_GETLEN){ 
+    } else if (cmd == IOCTL_GETLEN) { 
         *(size_t *)arg = lit->size;
         return 0;
-    } 
-    else if (cmd == IOCTL_SETPOS){ 
+    } else if (cmd == IOCTL_SETPOS) { 
         size_t set_position = *(size_t *)arg;
         if (set_position <= lit->size){
             lit->pos = set_position;
             return 0;
         }
         return -1;
-    }
-    else{
+    } else {
         return -1;
     }
 }

@@ -1,6 +1,5 @@
 #include "fs.h"
 #include "io.h"
-#include "vioblk.c"
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
@@ -53,11 +52,12 @@ Purpose: The purpose of this function is to mount the filesystem by providing th
 necessary block device. This allows for further filesystem operations like read and write.
 
 */
+// TODO: change errors
 int fs_mount(struct io_intf *io){
     // Check if filesystem and io are initialized properly.
     if (!fileSystemInit || io == NULL){
         // Error
-        return -1;
+        return -1; //
     }
     else{
         // Set the mountedIO variable to the device block.
@@ -166,7 +166,7 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
             }
 
             // Perform write and update the file position
-            long writtenBytes = vioblk_write(io, buf, n);
+            long writtenBytes = iowrite(io, buf, n);
             if (writtenBytes>0){
                 writeFileDescriptor->file_pos += writtenBytes;
             }
@@ -204,7 +204,7 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
             }
 
             // Perform read and update the file position
-            long readBytes = vioblk_read(io, buf, n);
+            long readBytes = ioread(io, buf, n);
             if (readBytes > 0)
             {
                 readFileDescriptor->file_pos += readBytes;
