@@ -246,7 +246,7 @@ void vioblk_attach(volatile struct virtio_mmio_regs * regs, int irqno) {
 
     dev->vq.desc[2].addr = (uint64_t)dev->blkbuf;
     dev->vq.desc[2].len = dev->blksz;
-    dev->vq.desc[2].flags = VIRTQ_DESC_F_NEXT;
+    dev->vq.desc[2].flags = VIRTQ_DESC_F_NEXT | VIRTQ_DESC_F_WRITE;
     dev->vq.desc[2].next = 3;
 
     dev->vq.desc[3].addr = (uint64_t)&dev->vq.req_status;
@@ -381,11 +381,13 @@ long vioblk_read (
     struct vioblk_device * dev = (void*)io - offsetof(struct vioblk_device, io_intf);
     unsigned long total = 0;
 
-    if (dev->pos >= dev->size)
+    if (dev->pos >= dev->size){
         return 0;
+    }
     
-    if (dev->pos + bufsz > dev->size)
+    if (dev->pos + bufsz > dev->size){
         bufsz = dev->size - dev->pos;
+    }
     
     while (bufsz > 0) {
         uint64_t blkno = dev->pos / dev->blksz;
@@ -418,13 +420,12 @@ long vioblk_read (
         }
 
         memcpy(buf, dev->blkbuf + blkno, n);
-
+        console_printf("vioblk_read copy %s\n", (char *)(dev->blkbuf + blkno));
         buf = (char *)buf + n;
         bufsz -= n;
         total += n;
         dev->pos += n;
     }
-
     return total;
 }
 

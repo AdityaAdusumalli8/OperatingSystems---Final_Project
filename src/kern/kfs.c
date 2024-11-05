@@ -1,13 +1,16 @@
 #include "fs.h"
 #include "io.h"
+#include "console.h"
+#include "error.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
 
 #define BLOCK_SIZE 4096
 #define MAX_FILE_SIZE (12*BLOCK_SIZE)
-#define MAX_FILES 32
+#define MAX_FILES 63
 #define FD_USED 1
+#define MAX_NAME_SIZE 32 //(bytes)
 
 // Create file descriptor struct`
 typedef struct file_desc
@@ -19,15 +22,21 @@ typedef struct file_desc
     uint32_t flags;
 } file_t;
 
-int fileSystemInit = 0;
+typedef struct dentry
+{
+    char f_name[MAX_NAME_SIZE];
+    uint32_t inode_idx;
+} f_dentry;
+
+char fs_initialized = 0;
 struct io_intf* mountedIO = NULL;
 static file_t fileDescriptorsArray[MAX_FILES];
 
 void fs_init(void)
 {
-    if (!fileSystemInit)
+    if (!fs_initialized)
     {
-        fileSystemInit = 1;
+        fs_initialized = 1;
         memset(fileDescriptorsArray, 0, sizeof(fileDescriptorsArray)); 
         mountedIO = NULL;
     }
@@ -55,7 +64,7 @@ necessary block device. This allows for further filesystem operations like read 
 // TODO: change errors
 int fs_mount(struct io_intf *io){
     // Check if filesystem and io are initialized properly.
-    if (!fileSystemInit || io == NULL){
+    if (!fs_initialized || io == NULL){
         // Error
         return -1; //
     }
@@ -81,7 +90,7 @@ operations in the io_intf interface. Enables interactions with an opened file.
 */
 int fs_open(const char *name, struct io_intf **io){
     // Perform checks to ensure the filesystem is initialized and the necessary variables have valid values.
-    if (!fileSystemInit || mountedIO == NULL || name == NULL || io == NULL)
+    if (!fs_initialized || mountedIO == NULL || name == NULL || io == NULL)
     {
         return -1; 
     }
@@ -106,6 +115,32 @@ int fs_open(const char *name, struct io_intf **io){
     file_t *newFileDescriptor = &fileDescriptorsArray[availablefdIndex];
     // Set the io_intf interface with function pointers for various file operations.
     newFileDescriptor->io.ops = &fs_io_ops;
+
+    // Set position in the file to 0
+    newFileDescriptor->file_pos = 0;
+    // Find the correct dentry for the file.
+    // Loop through the dentries until we find the correct file
+    int found = 0;
+    f_dentry dir_entry;
+    for(uint64_t i = 1; i <= MAX_FILES; i++){
+        ioseek(mountedIO, 64 * i);
+        ioread(mountedIO, &dir_entry, sizeof(f_dentry));
+        if(strcmp(dir_entry.f_name, name) == 0){
+            newFileDescriptor->inode_num = dir_entry.inode_idx;
+            found = i;
+            break;
+        }
+    }
+    console_printf("found=%d\n", found);
+    if(found == 0){
+        // No corresponding name
+        return -EINVAL;
+    }
+
+    uint32_t file_len;
+    ioseek(mountedIO, 4096 * (newFileDescriptor->inode_num + 1));
+    ioread(mountedIO, &file_len, 4);
+    newFileDescriptor->file_size = file_len;
 
     // Modify pointer to contain the io_intf structure of the opened file
     *io = &(newFileDescriptor->io);
