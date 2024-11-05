@@ -73,44 +73,116 @@ struct io_intf * iolit_init (
     struct io_lit * lit, void * buf, size_t size)
 {
     //           Implement me!
-    return &lit->io_intf;
+    static const struct io_ops ops = {
+        .read = iolit_read,
+        .write = iolit_write,
+        .ctl = iolit_ioctl};
+
+        lit->io_intf.ops = &ops;
+        lit->buf= buf;
+        lit->size = size;
+        lit->pos = 0;
+
+        return &lit->io_intf;
 }
 
-//           I/O term provides three features:
-//          
-//               1. Input CRLF normalization. Any of the following character sequences in
-//                  the input are converted into a single \n:
-//          
-//                      (a) \r\n,
-//                      (b) \r not followed by \n,
-//                      (c) \n not preceeded by \r.
-//          
-//               2. Output CRLF normalization. Any \n not preceeded by \r, or \r not
-//                  followed by \n, is written as \r\n. Sequence \r\n is written as \r\n.
-//          
-//               3. Line editing. The ioterm_getsn function provides line editing of the
-//                  input.
-//          
-//           Input CRLF normalization works by maintaining one bit of state: cr_in.
-//           Initially cr_in = 0. When a character ch is read from rawio:
-//           
-//           if cr_in = 0 and ch == '\r': return '\n', cr_in <- 1;
-//           if cr_in = 0 and ch != '\r': return ch;
-//           if cr_in = 1 and ch == '\r': return \n;
-//           if cr_in = 1 and ch == '\n': skip, cr_in <- 0;
-//           if cr_in = 1 and ch != '\r' and ch != '\n': return ch, cr_in <- 0.
-//          
-//           Ouput CRLF normalization works by maintaining one bit of state: cr_out.
-//           Initially, cr_out = 0. When a character ch is written to I/O term:
-//          
-//           if cr_out = 0 and ch == '\r': output \r\n to rawio, cr_out <- 1;
-//           if cr_out = 0 and ch == '\n': output \r\n to rawio;
-//           if cr_out = 0 and ch != '\r' and ch != '\n': output ch to rawio;
-//           if cr_out = 1 and ch == '\r': output \r\n to rawio;
-//           if cr_out = 1 and ch == '\n': no ouput, cr_out <- 0;
-//           if cr_out = 1 and ch != '\r' and ch != '\n': output ch, cr_out <- 0.
+static long iolit_read(struct io_intf *io, void *buf, size_t len)
+{
+    size_t read_offset = offsetof(struct io_lit, io_intf);
+    char * lit_baseAdd = (char *)io - read_offset;
+    struct io_lit *lit = (struct io_lit *)lit_baseAdd;
 
-struct io_intf * ioterm_init(struct io_term * iot, struct io_intf * rawio) {
+    size_t file_size_left = lit->size - lit->pos;
+    size_t bytes_left_read;
+    if (len > file_size_left){
+        bytes_left_read = file_size_left;
+    }else{
+        bytes_left_read = len;
+    }
+    memcpy(buf, (char *)lit->buf + lit->pos, bytes_left_read);
+    lit->pos += bytes_left_read;
+    return bytes_left_read;
+}
+
+static long iolit_write(struct io_intf *io, const void *buf, size_t len){
+    size_t write_offset = offsetof(struct io_lit, io_intf); 
+    char *lit_baseAdd = (char *)io - write_offset;         
+    struct io_lit *lit = (struct io_lit *)lit_baseAdd;
+
+    size_t file_size_left = lit->size - lit->pos;
+    size_t bytes_left_write;
+    if (len > file_size_left){
+        bytes_left_write = file_size_left;
+    }
+    else{
+        bytes_left_write = len;
+    }
+    memcpy((char *)lit->buf + lit->pos, buf, bytes_left_write);
+    lit->pos += bytes_left_write;
+    return bytes_left_write;
+}
+
+static int iolit_ioctl(struct io_intf *io, int cmd, void *arg){
+    size_t ctrl_offset = offsetof(struct io_lit, io_intf); 
+    char *lit_baseAdd = (char *)io - ctrl_offset;          
+    struct io_lit *lit = (struct io_lit *)lit_baseAdd;
+
+    if (cmd == IOCTL_GETPOS){
+        *(size_t *)arg = lit->pos;
+        return 0;
+    }
+    else if (cmd == IOCTL_GETLEN){ 
+        *(size_t *)arg = lit->size;
+        return 0;
+    } 
+    else if (cmd == IOCTL_SETPOS){ 
+        size_t set_position = *(size_t *)arg;
+        if (set_position <= lit->size){
+            lit->pos = set_position;
+            return 0;
+        }
+        return -1;
+    }
+    else{
+        return -1;
+    }
+}
+    //            I/O term provides three features:
+    //           
+    //                1. Input CRLF normalization. Any of the following character sequences in
+    //                   the input are converted into a single \n:
+    //           
+    //                       (a) \r\n,
+    //                       (b) \r not followed by \n,
+    //                       (c) \n not preceeded by \r.
+    //           
+    //                2. Output CRLF normalization. Any \n not preceeded by \r, or \r not
+    //                   followed by \n, is written as \r\n. Sequence \r\n is written as \r\n.
+    //           
+    //                3. Line editing. The ioterm_getsn function provides line editing of the
+    //                   input.
+    //           
+    //            Input CRLF normalization works by maintaining one bit of state: cr_in.
+    //            Initially cr_in = 0. When a character ch is read from rawio:
+    //           
+    //            if cr_in = 0 and ch == '\r': return '\n', cr_in <- 1;
+    //            if cr_in = 0 and ch != '\r': return ch;
+    //            if cr_in = 1 and ch == '\r': return \n;
+    //            if cr_in = 1 and ch == '\n': skip, cr_in <- 0;
+    //            if cr_in = 1 and ch != '\r' and ch != '\n': return ch, cr_in <- 0.
+    //           
+    //            Ouput CRLF normalization works by maintaining one bit of state: cr_out.
+    //            Initially, cr_out = 0. When a character ch is written to I/O term:
+    //           
+    //            if cr_out = 0 and ch == '\r': output \r\n to rawio, cr_out <- 1;
+    //            if cr_out = 0 and ch == '\n': output \r\n to rawio;
+    //            if cr_out = 0 and ch != '\r' and ch != '\n': output ch to rawio;
+    //            if cr_out = 1 and ch == '\r': output \r\n to rawio;
+    //            if cr_out = 1 and ch == '\n': no ouput, cr_out <- 0;
+    //            if cr_out = 1 and ch != '\r' and ch != '\n': output ch, cr_out <- 0.
+
+    struct io_intf *ioterm_init(struct io_term *iot, struct io_intf *rawio)
+{
     static const struct io_ops ops = {
         .close = ioterm_close,
         .read = ioterm_read,
