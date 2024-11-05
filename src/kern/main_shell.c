@@ -13,6 +13,7 @@
 #include "elf.h"
 #include "fs.h"
 #include "string.h"
+#include "io.h"
 
 //           end of kernel image (defined in kernel.ld)
 extern char _kimg_end[];
@@ -42,7 +43,7 @@ void main(void) {
     console_init();
     intr_init();
     devmgr_init();
-    thrmgr_init();
+    thread_init();
     timer_init();
 
     heap_init(_kimg_end, (void*)USER_START);
@@ -71,6 +72,8 @@ void main(void) {
     if (result != 0)
         panic("device_open failed");
     
+    fs_init();
+
     result = fs_mount(blkio);
 
     debug("Mounted blk0");
@@ -125,6 +128,8 @@ void shell_main(struct io_intf * termio_raw) {
         debug("Calling elf_load(\"%s\")", cmdbuf);
 
         result = elf_load(exeio, &exe_entry);
+
+        console_printf("elf_load(\"%s\") returned %d", cmdbuf, result);
 
         debug("elf_load(\"%s\") returned %d", cmdbuf, result);
 

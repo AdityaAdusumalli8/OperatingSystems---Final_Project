@@ -270,9 +270,9 @@ void vioblk_attach(volatile struct virtio_mmio_regs * regs, int irqno) {
     intr_register_isr(irqno, VIOBLK_IRQ_PRIO, vioblk_isr, dev);
     intr_enable_irq(irqno);
 
-    dev->instno = device_register("vioblk", vioblk_open, dev);
+    dev->instno = device_register("blk", vioblk_open, dev);
     if (dev->instno < 0) {
-        kprintf("vioblk: device_register failed\n");
+        kprintf("blk: device_register failed\n");
         return;
     }
  

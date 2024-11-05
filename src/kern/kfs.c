@@ -17,11 +17,11 @@ typedef struct file_desc
     uint64_t file_size;
     uint32_t inode_num;
     uint32_t flags;
-} file_desc_t;
+} file_t;
 
 int fileSystemInit = 0;
 struct io_intf* mountedIO = NULL;
-static file_desc_t fileDescriptorsArray[MAX_FILES];
+static file_t fileDescriptorsArray[MAX_FILES];
 
 void fs_init(void)
 {
@@ -103,7 +103,7 @@ int fs_open(const char *name, struct io_intf **io){
     }
 
     // Initialize file descriptpr:
-    file_desc_t *newFileDescriptor = &fileDescriptorsArray[availablefdIndex];
+    file_t *newFileDescriptor = &fileDescriptorsArray[availablefdIndex];
     // Set the io_intf interface with function pointers for various file operations.
     newFileDescriptor->io.ops = &fs_io_ops;
 
@@ -153,7 +153,7 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
     }
 
     // Find the file descriptor 
-    file_desc_t *writeFileDescriptor = NULL; 
+    file_t *writeFileDescriptor = NULL; 
     for (int i = 0; i < MAX_FILES; i++){
         if (&(fileDescriptorsArray[i].io) == io)
         {
@@ -189,7 +189,7 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
     }
 
     // Find the file descriptor
-    file_desc_t *readFileDescriptor = NULL;
+    file_t *readFileDescriptor = NULL;
     for (int i = 0; i < MAX_FILES; i++)
     {
         if (&(fileDescriptorsArray[i].io) == io)
@@ -215,12 +215,54 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
     return -1;
 }
 
+int fs_getlen(file_t *fd, void *arg){
+    if (fd == NULL || arg == NULL){
+        return -1;
+    }
+    uint64_t *recieve_length = (uint64_t *)arg;
+    *recieve_length = fd->file_size;
+    return 0;
+}
+
+int fs_getpos(file_t *fd, void *arg){
+    if (fd == NULL || arg == NULL){
+        return -1;
+    }
+    uint64_t *recieve_pos = (uint64_t *)arg;
+    *recieve_pos = fd->file_pos;
+    return 0;
+}
+
+int fs_setpos(file_t *fd, void *arg)
+{
+    if (fd == NULL || arg == NULL){
+        return -1;
+    }
+    uint64_t *set_position = (uint64_t *)arg;
+    if (*set_position <= fd->file_size){
+        fd->file_pos = *set_position;
+        return 0;
+    }
+    return -1;
+}
+
+int fs_getblksz(file_t *fd, void *arg){
+    if (fd == NULL || arg == NULL){
+        return -1; 
+    }
+    uint32_t *blksz_ptr = (uint32_t *)arg;
+
+    *blksz_ptr = BLOCK_SIZE;
+
+    return 0; 
+}
+
 int fs_ioctl(struct io_intf *io, int cmd, void *arg){
     if (io == NULL || arg == NULL){
         return -1; 
     }
 
-    file_desc_t *ioctl_fd = NULL;
+    file_t *ioctl_fd = NULL;
     for (int i = 0; i < MAX_FILES; i++){
         if (&fileDescriptorsArray[i].io == io ){
             ioctl_fd = &fileDescriptorsArray[i];
@@ -243,46 +285,4 @@ int fs_ioctl(struct io_intf *io, int cmd, void *arg){
     }
 
     return -1;
-}
-
-int fs_getlen(file_desc_t *fd, void *arg){
-    if (fd == NULL || arg == NULL){
-        return -1;
-    }
-    uint64_t *recieve_length = (uint64_t *)arg;
-    *recieve_length = fd->file_size;
-    return 0;
-}
-
-int fs_getpos(file_desc_t *fd, void *arg){
-    if (fd == NULL || arg == NULL){
-        return -1;
-    }
-    uint64_t *recieve_pos = (uint64_t *)arg;
-    *recieve_pos = fd->file_pos;
-    return 0;
-}
-
-int fs_setpos(file_desc_t *fd, void *arg)
-{
-    if (fd == NULL || arg == NULL){
-        return -1;
-    }
-    uint64_t *set_position = (uint64_t *)arg;
-    if (*set_position <= fd->file_size){
-        fd->file_pos = *set_position;
-        return 0;
-    }
-    return -1;
-}
-
-int fs_getblksz(file_desc_t *fd, void *arg){
-    if (fd == NULL || arg == NULL){
-        return -1; 
-    }
-    uint32_t *blksz_ptr = (uint32_t *)arg;
-
-    *blksz_ptr = BLOCK_SIZE;
-
-    return 0; 
 }

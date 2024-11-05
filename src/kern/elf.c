@@ -3,6 +3,7 @@
 
 #include "elf.h"
 #include "io.h"
+#include "console.h"
 
 #define LOAD_LOCATION 0x80100000
 #define LOAD_END      0x81000000
@@ -52,12 +53,16 @@ typedef struct elf64_phdr {
 } Elf64_Phdr;
 
 int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)){
+  console_printf("into elf_load\n");
     struct elf64_hdr *hdr;
     long bytes_read = ioread(io, hdr, sizeof(Elf64_Ehdr));
     //Ensure we read the whole header
     if(bytes_read < sizeof(hdr)){
       return -1000 + bytes_read - sizeof(Elf64_Ehdr);
     }
+    console_printf("1\n");
+    console_printf("%s\n", hdr);
+    console_printf("why");
 
     // Check ELF ident chars
     // Also verify 64 bit arch, little-endian
@@ -77,6 +82,8 @@ int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)){
       //Not for UNIX!
       return -4;
     }
+
+    console_printf("2\n");
     
     // Check e_type in header, ensure is ET_EXEC (executable)
     // Verify e_machine = EM_RISCV
@@ -92,6 +99,7 @@ int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)){
     // At this point, the file is valid, and should be loaded
     // Set entryptr to point to entry point
     *entryptr = hdr->e_entry;
+    console_printf("3\n");
 
     // Loop program headers
     struct elf64_phdr *phdr;

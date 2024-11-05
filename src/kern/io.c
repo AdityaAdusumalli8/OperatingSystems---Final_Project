@@ -65,45 +65,6 @@ long iowrite(struct io_intf * io, const void * buf, unsigned long n) {
     return acc;
 }
 
-//           Initialize an io_lit. This function should be called with an io_lit, a buffer, and the size of the device.
-//           It should set up all fields within the io_lit struct so that I/O operations can be performed on the io_lit
-//           through the io_intf interface. This function should return a pointer to an io_intf object that can be used 
-//           to perform I/O operations on the device.
-
-/**
- * Name: iolit_init
- * 
- * Inputs:
- *  struct io_lit *     -> lit
- *  void *              -> buf
- *  size_t              -> size
- * 
- * Outputs:
- *  struct io_intf *    -> io
- * 
- * Purpose:
- *  The purpose of this function is to initialize a block that allows you to perform normal IO operations
- *  on a block of memory.
- * 
- * Side effects:
- *  There are no significant side effects of the function besides accessing lit's registers.
- */
-struct io_intf * iolit_init (struct io_lit * lit, void * buf, size_t size) {
-    //           Implement me!
-    static const struct io_ops ops = {
-        .read = iolit_read,
-        .write = iolit_write,
-        .ctl = iolit_ioctl
-    };
-
-    lit->io_intf.ops = &ops;
-    lit->buf= buf;
-    lit->size = size;
-    lit->pos = 0;
-
-    return &lit->io_intf;
-}
-
 /**
  * Name: iolit_read
  * 
@@ -199,6 +160,46 @@ static int iolit_ioctl(struct io_intf *io, int cmd, void *arg) {
         return -1;
     }
 }
+
+//           Initialize an io_lit. This function should be called with an io_lit, a buffer, and the size of the device.
+//           It should set up all fields within the io_lit struct so that I/O operations can be performed on the io_lit
+//           through the io_intf interface. This function should return a pointer to an io_intf object that can be used 
+//           to perform I/O operations on the device.
+
+/**
+ * Name: iolit_init
+ * 
+ * Inputs:
+ *  struct io_lit *     -> lit
+ *  void *              -> buf
+ *  size_t              -> size
+ * 
+ * Outputs:
+ *  struct io_intf *    -> io
+ * 
+ * Purpose:
+ *  The purpose of this function is to initialize a block that allows you to perform normal IO operations
+ *  on a block of memory.
+ * 
+ * Side effects:
+ *  There are no significant side effects of the function besides accessing lit's registers.
+ */
+struct io_intf * iolit_init (struct io_lit * lit, void * buf, size_t size) {
+    //           Implement me!
+    static const struct io_ops ops = {
+        .read = iolit_read,
+        .write = iolit_write,
+        .ctl = iolit_ioctl
+    };
+
+    lit->io_intf.ops = &ops;
+    lit->buf= buf;
+    lit->size = size;
+    lit->pos = 0;
+
+    return &lit->io_intf;
+}
+
     //            I/O term provides three features:
     //           
     //                1. Input CRLF normalization. Any of the following character sequences in

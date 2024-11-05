@@ -17,7 +17,16 @@ CORE_OBJS = \
 	device.o \
 	virtio.o \
 	vioblk.o \
-	console.o
+	console.o \
+	plic.o \
+	timer.o \
+	thread.o \
+	uart.o \
+	kfs.o \
+	elf.o \
+	thrasm.o \
+	ezheap.o
+	
 
 # Add the names of new objects here
 
