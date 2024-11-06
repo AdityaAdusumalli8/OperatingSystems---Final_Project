@@ -170,6 +170,20 @@ void main(void) {
         console_printf("Wrote %ld bytes to blk device.\n", blk_bytes_written);
     }
 
+    ioseek(blkio, 0);
+    blk_bytes_read = ioread(blkio, blkbuf, strlen(blkdata));
+    if (blk_bytes_written < 0) {
+        console_printf("ioread to blk device failed with error %ld\n", blk_bytes_written);
+    } else {
+        console_printf("Read (%ld) bytes to blk device: %s\n", blk_bytes_written, blkbuf);
+    }
+    blk_bytes_read = ioread(blkio, blkbuf, strlen(blkdata));
+    if (blk_bytes_written < 0) {
+        console_printf("ioread to blk device failed with error %ld\n", blk_bytes_written);
+    } else {
+        console_printf("Read (%ld) bytes to blk device: %s\n", blk_bytes_written, blkbuf);
+    }
+
     // Test block device IOCTL commands
     uint64_t dev_length;
     result = ioctl(blkio, IOCTL_GETLEN, &dev_length);

@@ -105,6 +105,7 @@ int fs_open(const char *name, struct io_intf **io){
     {
         return -EINVAL; 
     }
+    console_printf("%x IS MOUNTED IO\n", *mountedIO);
 
     // Find an available file descriptor to represent the opened file
     int availablefdIndex = -1;
@@ -133,13 +134,14 @@ int fs_open(const char *name, struct io_intf **io){
     // Loop through the dentries until we find the correct file
     int found = 0;
     desc_block dentry_block;
+    ioseek(mountedIO, 0);
     ioread(mountedIO, &dentry_block, sizeof(desc_block));
     console_printf("%d dentries\n", dentry_block.num_dentries);
     for(uint64_t i = 0; i < MAX_FILES; i++){
         // loop through the dentries
         // find the dentry with the matching name
         f_dentry dir_entry = dentry_block.dentries[i];
-        console_printf("%s\n", dir_entry.f_name);
+        console_printf("%d: %s\n", i, dir_entry.f_name);
         if(strcmp(dir_entry.f_name, name) == 0){
             newFileDescriptor->inode_num = dir_entry.inode_idx;
             found = i;

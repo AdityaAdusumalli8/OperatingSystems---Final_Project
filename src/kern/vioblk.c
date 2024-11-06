@@ -313,6 +313,8 @@ int vioblk_open(struct io_intf ** ioptr, void * aux) {
     dev->vq.avail.idx = 0;
     dev->vq.used.idx = 0;
 
+    char* blkbuf = kmalloc(dev->blksz);
+    dev->blkbuf = blkbuf;
     dev->bufblkno = (uint64_t)-1;
     dev->pos = 0;
 
@@ -349,6 +351,8 @@ void vioblk_close(struct io_intf * io) {
 
     dev->vq.avail.idx = 0;
     dev->vq.used.idx = 0;
+
+    kfree(dev->blkbuf);
 
     intr_disable_irq(dev->irqno);
 }
@@ -391,6 +395,7 @@ long vioblk_read (
     
     while (bufsz > 0) {
         uint64_t blkno = dev->pos / dev->blksz;
+        console_printf("reading blkno %d", blkno);
         uint64_t blkoff = dev->pos % dev->blksz;
         unsigned long n = dev->blksz - blkoff;
         if (n > bufsz) n = bufsz;
@@ -419,8 +424,9 @@ long vioblk_read (
             dev->bufblkno = blkno;
         }
 
-        memcpy(buf, dev->blkbuf + blkno, n);
-        console_printf("vioblk_read copy %s\n", (char *)(dev->blkbuf + blkno));
+        memcpy(buf, dev->blkbuf + blkoff, n);
+        console_printf("currently in buffer: %d\n", (dev->bufblkno));
+        console_printf("vioblk_read copy %s\n", (char *)(dev->blkbuf + blkoff));
         buf = (char *)buf + n;
         bufsz -= n;
         total += n;
@@ -455,6 +461,7 @@ long vioblk_write (
 {
     // FIXME your code here
     struct vioblk_device * dev = (void*)io - offsetof(struct vioblk_device, io_intf);
+    int buf_off = 0;
     unsigned long total = 0;
 
     if (dev->readonly) {
@@ -503,8 +510,8 @@ long vioblk_write (
         } else {
             dev->bufblkno = blkno;
         }
-
-        memcpy(dev->blkbuf + blkoff, buf, nbytes);
+        console_printf("writing %s to buffer\n", buf + buf_off);
+        memcpy(dev->blkbuf + blkoff, buf + buf_off, nbytes);
 
         dev->vq.req_header.type = VIRTIO_BLK_T_OUT;
         dev->vq.req_header.reserved = 0;
@@ -527,7 +534,7 @@ long vioblk_write (
             return -EIO;
         }
 
-        buf = (const char *)buf + nbytes;
+        buf_off += nbytes;
         n -= nbytes;
         total += nbytes;
         dev->pos += nbytes;
