@@ -22,11 +22,22 @@ typedef struct file_desc
     uint32_t flags;
 } file_t;
 
+
 typedef struct dentry
 {
     char f_name[MAX_NAME_SIZE];
     uint32_t inode_idx;
+    char padding[28];
 } f_dentry;
+
+typedef struct first_block
+{
+    uint32_t num_dentries;
+    uint32_t num_inodes;
+    uint32_t num_blocks;
+    char reserved[52];
+    f_dentry dentries[MAX_FILES];
+} desc_block;
 
 char fs_initialized = 0;
 struct io_intf* mountedIO = NULL;
@@ -66,7 +77,7 @@ int fs_mount(struct io_intf *io){
     // Check if filesystem and io are initialized properly.
     if (!fs_initialized || io == NULL){
         // Error
-        return -1; //
+        return -EINVAL; //
     }
     else{
         // Set the mountedIO variable to the device block.
@@ -92,7 +103,7 @@ int fs_open(const char *name, struct io_intf **io){
     // Perform checks to ensure the filesystem is initialized and the necessary variables have valid values.
     if (!fs_initialized || mountedIO == NULL || name == NULL || io == NULL)
     {
-        return -1; 
+        return -EINVAL; 
     }
 
     // Find an available file descriptor to represent the opened file
@@ -121,10 +132,14 @@ int fs_open(const char *name, struct io_intf **io){
     // Find the correct dentry for the file.
     // Loop through the dentries until we find the correct file
     int found = 0;
-    f_dentry dir_entry;
-    for(uint64_t i = 1; i <= MAX_FILES; i++){
-        ioseek(mountedIO, 64 * i);
-        ioread(mountedIO, &dir_entry, sizeof(f_dentry));
+    desc_block dentry_block;
+    ioread(mountedIO, &dentry_block, sizeof(desc_block));
+    console_printf("%d dentries\n", dentry_block.num_dentries);
+    for(uint64_t i = 0; i < MAX_FILES; i++){
+        // loop through the dentries
+        // find the dentry with the matching name
+        f_dentry dir_entry = dentry_block.dentries[i];
+        console_printf("%s\n", dir_entry.f_name);
         if(strcmp(dir_entry.f_name, name) == 0){
             newFileDescriptor->inode_num = dir_entry.inode_idx;
             found = i;
