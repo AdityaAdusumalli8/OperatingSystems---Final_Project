@@ -226,7 +226,8 @@ void vioblk_attach(volatile struct virtio_mmio_regs * regs, int irqno) {
     dev->blksz = blksz;
     dev->blkcnt = regs->config.blk.capacity;
     dev->size = dev->blkcnt * dev->blksz;
-    dev->blkbuf = (char *)(dev + 1);
+    char* blkbuf = kmalloc(dev->blksz);
+    dev->blkbuf = blkbuf;
     dev->bufblkno = (uint64_t)-1;
     dev->opened = 0;
     dev->readonly = virtio_featset_test(enabled_features, VIRTIO_BLK_F_RO);
@@ -313,8 +314,6 @@ int vioblk_open(struct io_intf ** ioptr, void * aux) {
     dev->vq.avail.idx = 0;
     dev->vq.used.idx = 0;
 
-    char* blkbuf = kmalloc(dev->blksz);
-    dev->blkbuf = blkbuf;
     dev->bufblkno = (uint64_t)-1;
     dev->pos = 0;
 
