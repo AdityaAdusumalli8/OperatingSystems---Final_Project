@@ -69,6 +69,12 @@ test.elf: $(CORE_OBJS) main_tests.o companion.o
 run-test: test.elf
 	$(QEMU) $(QEMUOPTS)
 
+lit.elf: $(CORE_OBJS) iolit_tests.o companion.o
+	$(LD) -T kernel.ld -o $@ $^
+
+run-lit: lit.elf
+	$(QEMU) $(QEMUOPTS)
+
 clean:
 	if [ -f companion.o ]; then cp companion.o companion.o.save; fi
 	rm -rf *.o *.elf *.asm

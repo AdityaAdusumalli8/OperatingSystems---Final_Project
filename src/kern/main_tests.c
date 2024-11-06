@@ -99,6 +99,9 @@ void main(void) {
 //     shell_main(termio);
     struct io_intf * termio;
     struct io_intf * blkio;
+    struct io_intf * litio;
+    struct io_lit iolit;
+    char lit_buffer[4096];
     void * mmio_base;
     int result;
     int i;
@@ -135,10 +138,21 @@ void main(void) {
 
     // Initialize and mount the filesystem
     fs_init();
-    result = fs_mount(blkio);
+    iolit_init(&iolit, lit_buffer, 4096);
+
+    result = fs_mount(litio);
     if (result != 0)
         panic("fs_mount failed");
-    console_printf("Mounted filesystem on blk device.\n");
+    console_printf("Mounted filesystem on lit device.\n");
+
+    struct io_intf *fileio;
+    result = fs_open("testfile", &fileio);
+    if (result != 0) {
+        console_printf("fs_open failed with error %d\n", result);
+        return;
+    }
+    console_printf("Opened file 'testfile'.\n");
+
 
     // Test block device read
     // THIS IS THE GIANT BLOCK THAT IS BEING READ FROM
@@ -210,13 +224,13 @@ void main(void) {
     }
 
     // Test filesystem functions
-    struct io_intf *fileio;
-    result = fs_open("testfile", &fileio);
-    if (result != 0) {
-        console_printf("fs_open failed with error %d\n", result);
-        return;
-    }
-    console_printf("Opened file 'testfile'.\n");
+    // struct io_intf *fileio;
+    // result = fs_open("testfile", &fileio);
+    // if (result != 0) {
+    //     console_printf("fs_open failed with error %d\n", result);
+    //     return;
+    // }
+    // console_printf("Opened file 'testfile'.\n");
 
     // Read from the file
     char buffer[128];

@@ -30,18 +30,19 @@ typedef struct dentry
     char padding[28];
 } f_dentry;
 
-typedef struct first_block
+typedef struct
 {
     uint32_t num_dentries;
     uint32_t num_inodes;
     uint32_t num_blocks;
     char reserved[52];
-    f_dentry dentries[MAX_FILES];
-} desc_block;
+} stat_block_t;
 
 char fs_initialized = 0;
 struct io_intf* mountedIO = NULL;
 static file_t fileDescriptorsArray[MAX_FILES];
+static stat_block_t stat_block;
+static f_dentry d_entries[MAX_FILES];
 
 void fs_init(void)
 {
@@ -79,10 +80,25 @@ int fs_mount(struct io_intf *io){
         // Error
         return -EINVAL; //
     }
-    else{
-        // Set the mountedIO variable to the device block.
-        mountedIO = io;
+    // Set the mountedIO variable to the device block.
+    mountedIO = io;
+    ioseek(mountedIO, 0);
+
+    uint8_t statsBuffer[BLOCK_SIZE];
+    long bytes_read = ioread(mountedIO, statsBuffer, BLOCK_SIZE);
+    console_printf("%d bytes read\n", bytes_read);
+    if(!bytes_read == BLOCK_SIZE){
+        return -EINVAL;
     }
+
+    memcpy(&stat_block, statsBuffer, sizeof(stat_block_t));
+
+    if(stat_block.num_dentries > MAX_FILES){
+        return -EINVAL;
+    }
+
+    memcpy(d_entries, statsBuffer + sizeof(stat_block_t), stat_block.num_dentries * sizeof(f_dentry));
+
     // Return Success
     return 0;
 }
@@ -133,18 +149,15 @@ int fs_open(const char *name, struct io_intf **io){
     // Find the correct dentry for the file.
     // Loop through the dentries until we find the correct file
     int found = 0;
-    desc_block dentry_block;
-    ioseek(mountedIO, 0);
-    ioread(mountedIO, &dentry_block, sizeof(desc_block));
-    console_printf("%d dentries\n", dentry_block.num_dentries);
+    console_printf("%d dentries\n", stat_block.num_dentries);
     for(uint64_t i = 0; i < MAX_FILES; i++){
         // loop through the dentries
         // find the dentry with the matching name
-        f_dentry dir_entry = dentry_block.dentries[i];
+        f_dentry dir_entry = d_entries[i];
         console_printf("%d: %s\n", i, dir_entry.f_name);
         if(strcmp(dir_entry.f_name, name) == 0){
             newFileDescriptor->inode_num = dir_entry.inode_idx;
-            found = i;
+            found = 1;
             break;
         }
     }
