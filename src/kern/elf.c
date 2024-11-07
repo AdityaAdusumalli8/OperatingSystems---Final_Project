@@ -57,7 +57,8 @@ int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)){
     struct elf64_hdr hdr;
     long bytes_read = ioread(io, &hdr, sizeof(Elf64_Ehdr));
     //Ensure we read the whole header
-    if(bytes_read < sizeof(hdr)){
+    console_printf("read %d bytes\n", bytes_read);
+    if(bytes_read < sizeof(Elf64_Ehdr)){
       return -1000 + bytes_read - sizeof(Elf64_Ehdr);
     }
 

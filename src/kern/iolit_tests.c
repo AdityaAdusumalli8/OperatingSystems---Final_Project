@@ -17,6 +17,8 @@
 
 //           end of kernel image (defined in kernel.ld)
 extern char _kimg_end[];
+extern char _companion_f_start[];
+extern char _companion_f_end[];
 
 #define RAM_SIZE (8*1024*1024)
 #define RAM_START 0x80000000UL
@@ -158,18 +160,39 @@ void main(void) {
     iowrite(litio, data, 32);
 
     console_printf("Try mount filesystem on lit device.\n");
-    result = fs_mount(litio);
-    if (result != 0)
-        panic("fs_mount failed");
-    console_printf("Mounted filesystem on lit device.\n");
+    // result = fs_mount(litio);
+    // if (result != 0)
+    //     panic("fs_mount failed");
+    // console_printf("Mounted filesystem on lit device.\n");
 
-    struct io_intf *fileio;
-    result = fs_open("Data", &fileio);
-    if (result != 0) {
-        console_printf("fs_open failed with error %d\n", result);
-        return;
-    }
-    console_printf("Opened file 'Data'. (doesn't work rn, no inode)\n");
+    // struct io_intf *fileio;
+    // result = fs_open("Data", &fileio);
+    // if (result != 0) {
+    //     console_printf("fs_open failed with error %d\n", result);
+    //     return;
+    // }
+    // console_printf("Opened file 'Data'. (doesn't work rn, no inode)\n");
+
+    // ioseek(blkio, 0);
+    // ioread(blkio, readout, 512);
+    // console_printf("%x\n", *readout);
+
+    
+    struct io_lit imglit;
+    struct io_intf * imgio;
+    void * buf = _companion_f_start;
+    size_t size = _companion_f_end - _companion_f_start;
+
+    imgio = iolit_init(&imglit, buf, size);
+
+    // struct io_intf * trek;
+    void * entryptr;
+    // fs_open("trek", &trek);
+    console_printf("result%d\n", elf_load(imgio, entryptr));
+
+
+    console_printf("%x\n", entryptr);
+
 
 
 
