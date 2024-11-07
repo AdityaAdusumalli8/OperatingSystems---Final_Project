@@ -230,7 +230,8 @@ void vioblk_attach(volatile struct virtio_mmio_regs * regs, int irqno) {
     dev->blkbuf = blkbuf;
     dev->bufblkno = (uint64_t)-1;
     dev->opened = 0;
-    dev->readonly = virtio_featset_test(enabled_features, VIRTIO_BLK_F_RO);
+    // dev->readonly = virtio_featset_test(enabled_features, VIRTIO_BLK_F_RO);
+    dev->readonly = 0;
     
     condition_init(&dev->vq.used_updated, "vioblk_used_updated");
 
@@ -247,7 +248,7 @@ void vioblk_attach(volatile struct virtio_mmio_regs * regs, int irqno) {
 
     dev->vq.desc[2].addr = (uint64_t)dev->blkbuf;
     dev->vq.desc[2].len = dev->blksz;
-    dev->vq.desc[2].flags = VIRTQ_DESC_F_NEXT | VIRTQ_DESC_F_WRITE;
+    dev->vq.desc[2].flags = VIRTQ_DESC_F_NEXT;
     dev->vq.desc[2].next = 3;
 
     dev->vq.desc[3].addr = (uint64_t)&dev->vq.req_status;
@@ -269,10 +270,9 @@ void vioblk_attach(volatile struct virtio_mmio_regs * regs, int irqno) {
 
     // Register the ISR and device
     intr_register_isr(irqno, VIOBLK_IRQ_PRIO, vioblk_isr, dev);
-    intr_enable_irq(irqno);
 
-    dev->instno = device_register("blk", vioblk_open, dev);
-    if (dev->instno < 0) {
+    int reg_status = device_register("blk", vioblk_open, dev);
+    if (reg_status < 0) {
         kprintf("blk: device_register failed\n");
         return;
     }
@@ -381,51 +381,112 @@ long vioblk_read (
     unsigned long bufsz)
 {
     // FIXME your code here
-    struct vioblk_device * dev = (void*)io - offsetof(struct vioblk_device, io_intf);
+    // struct vioblk_device * dev = (void*)io - offsetof(struct vioblk_device, io_intf);
+    // unsigned long total = 0;
+
+    // if (dev->pos >= dev->size){
+    //     return 0;
+    // }
+    
+    // if (dev->pos + bufsz > dev->size){
+    //     bufsz = dev->size - dev->pos;
+    // }
+    
+    // while (bufsz > 0) {
+    //     uint64_t blkno = dev->pos / dev->blksz;
+    //     console_printf("reading blkno %d", blkno);
+    //     uint64_t blkoff = dev->pos % dev->blksz;
+    //     unsigned long n = dev->blksz - blkoff;
+    //     if (n > bufsz) n = bufsz;
+
+    //     if (dev->bufblkno != blkno) {
+    //         dev->vq.req_header.type = VIRTIO_BLK_T_IN;
+    //         dev->vq.req_header.reserved = 0;
+    //         dev->vq.req_header.sector = blkno * (dev->blksz / 512);
+
+    //         dev->vq.desc[2].flags = VIRTQ_DESC_F_NEXT | VIRTQ_DESC_F_WRITE;
+
+    //         dev->vq.req_status = 0xFF;
+
+    //         dev->vq.avail.ring[dev->vq.avail.idx % 1] = 0;
+    //         __sync_synchronize();
+    //         dev->vq.avail.idx++;
+    //         __sync_synchronize();
+
+    //         virtio_notify_avail(dev->regs, 0);
+
+    //         condition_wait(&dev->vq.used_updated);
+
+    //         if (dev->vq.req_status != VIRTIO_BLK_S_OK)
+    //             return -EIO;
+            
+    //         dev->bufblkno = blkno;
+    //     }
+
+    //     memcpy(buf, dev->blkbuf + blkoff, n);
+    //     console_printf("currently in buffer: %d\n", (dev->bufblkno));
+    //     console_printf("vioblk_read copy %s\n", (char *)(dev->blkbuf + blkoff));
+    //     buf = (char *)buf + n;
+    //     bufsz -= n;
+    //     total += n;
+    //     dev->pos += n;
+    // }
+    // return total;
+    struct vioblk_device *dev = (void *)io - offsetof(struct vioblk_device, io_intf);
     unsigned long total = 0;
 
-    if (dev->pos >= dev->size){
+    // Ensure we don't read beyond the device's available data
+    if (dev->pos >= dev->size)
         return 0;
-    }
-    
-    if (dev->pos + bufsz > dev->size){
+    if (dev->pos + bufsz > dev->size)
         bufsz = dev->size - dev->pos;
-    }
-    
+
     while (bufsz > 0) {
+        // Calculate block number and offset within the block
         uint64_t blkno = dev->pos / dev->blksz;
-        console_printf("reading blkno %d", blkno);
         uint64_t blkoff = dev->pos % dev->blksz;
         unsigned long n = dev->blksz - blkoff;
         if (n > bufsz) n = bufsz;
 
+        // If the requested block is not cached, request it from the device
         if (dev->bufblkno != blkno) {
+            // Prepare a read operation by setting the request type and sector
             dev->vq.req_header.type = VIRTIO_BLK_T_IN;
-            dev->vq.req_header.reserved = 0;
             dev->vq.req_header.sector = blkno * (dev->blksz / 512);
 
             dev->vq.desc[2].flags = VIRTQ_DESC_F_NEXT | VIRTQ_DESC_F_WRITE;
 
-            dev->vq.req_status = 0xFF;
+            // Mark request status as "in progress" and notify the device
+            // dev->vq.req_status = 0xFF;
 
-            dev->vq.avail.ring[dev->vq.avail.idx % 1] = 0;
+            console_printf("Requesting sector %lu, type %d, status %x\n", dev->vq.req_header.sector, dev->vq.req_header, dev->vq.req_status);
+            dev->vq.avail.ring[dev->vq.avail.idx % 1] = 0; // Requesting descriptor 0
             __sync_synchronize();
             dev->vq.avail.idx++;
             __sync_synchronize();
 
+            // Notify device and wait for the request to complete
+            int i = intr_disable();
             virtio_notify_avail(dev->regs, 0);
-
             condition_wait(&dev->vq.used_updated);
+            intr_restore(i);
 
-            if (dev->vq.req_status != VIRTIO_BLK_S_OK)
+            console_printf("%s\n", dev->blkbuf);
+
+            // Check the status of the completed request
+            if (dev->vq.req_status != VIRTIO_BLK_S_OK) {
+                console_printf("Read failed with status %d\n", dev->vq.req_status);
                 return -EIO;
-            
+            }
+
+            // Cache the current block number to avoid redundant requests
             dev->bufblkno = blkno;
         }
 
+        // Copy data from the block buffer to the provided user buffer
+        console_printf("Copying %lu bytes from blkbuf offset %lu\n", n, blkoff);
         memcpy(buf, dev->blkbuf + blkoff, n);
-        console_printf("currently in buffer: %d\n", (dev->bufblkno));
-        console_printf("vioblk_read copy %s\n", (char *)(dev->blkbuf + blkoff));
+        console_printf("Reading %s from buffer\n", buf);
         buf = (char *)buf + n;
         bufsz -= n;
         total += n;
@@ -483,11 +544,12 @@ long vioblk_write (
 
         if (nbytes < dev->blksz) {
             if (dev->bufblkno != blkno) {
-                dev->vq.req_header.type = VIRTIO_BLK_T_IN;
+                // dev->vq.req_header.type = VIRTIO_BLK_T_IN;
+                dev->vq.req_header.type = VIRTIO_BLK_T_OUT;
                 dev->vq.req_header.reserved = 0;
                 dev->vq.req_header.sector = blkno * (dev->blksz / 512);
 
-                dev->vq.desc[2].flags = VIRTQ_DESC_F_NEXT | VIRTQ_DESC_F_WRITE;
+                dev->vq.desc[2].flags = VIRTQ_DESC_F_NEXT;
 
                 dev->vq.req_status = 0xFF;
 
