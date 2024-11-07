@@ -34,74 +34,8 @@ extern char _kimg_end[];
 static void shell_main(struct io_intf * termio);
 
 void main(void) {
-//     struct io_intf * termio;
-//     struct io_intf * blkio;
-//     void * mmio_base;
-//     int result;
-//     int i;
-
-//     console_init();
-//     intr_init();
-//     devmgr_init();
-//     thread_init();
-//     timer_init();
-
-//     heap_init(_kimg_end, (void*)USER_START);
-
-//     //           Attach NS16550a serial devices
-
-//     for (i = 0; i < 2; i++) {
-//         mmio_base = (void*)UART0_IOBASE;
-//         mmio_base += (UART1_IOBASE-UART0_IOBASE)*i;
-//         uart_attach(mmio_base, UART0_IRQNO+i);
-//     }
-    
-//     //           Attach virtio devices
-
-//     for (i = 0; i < 8; i++) {
-//         mmio_base = (void*)VIRT0_IOBASE;
-//         mmio_base += (VIRT1_IOBASE-VIRT0_IOBASE)*i;
-//         virtio_attach(mmio_base, VIRT0_IRQNO+i);
-//     }
-
-//     intr_enable();
-//     timer_start();
-
-//    result = device_open(&blkio, "blk", 0);
-
-//     if (result != 0)
-//         panic("device_open failed");
-    
-//     fs_init();
-
-//     result = fs_mount(blkio);
-
-//     debug("Mounted blk0");
-
-//     ioseek(blkio, 0);
-//     uint64_t blk_data = 0;
-//     for(int i = 0; i < 8; i++){
-//         ioread(blkio, &blk_data, 8);
-//         console_printf("%x\n", blk_data);
-//     }
-//     return 0;
-
-//     if (result != 0)
-//         panic("fs_mount failed");
-
-//     //           Open terminal for trek
-
-//     result = device_open(&termio, "ser", 1);
-
-//     if (result != 0)
-//         panic("Could not open ser1");
-    
-//     shell_main(termio);
     struct io_intf * termio;
     struct io_intf * blkio;
-    struct io_intf * litio;
-    struct io_lit iolit;
-    char lit_buffer[4096];
     void * mmio_base;
     int result;
     int i;
@@ -138,24 +72,12 @@ void main(void) {
 
     // Initialize and mount the filesystem
     fs_init();
-    iolit_init(&iolit, lit_buffer, 4096);
-
-    result = fs_mount(litio);
+    result = fs_mount(blkio);
     if (result != 0)
         panic("fs_mount failed");
-    console_printf("Mounted filesystem on lit device.\n");
-
-    struct io_intf *fileio;
-    result = fs_open("testfile", &fileio);
-    if (result != 0) {
-        console_printf("fs_open failed with error %d\n", result);
-        return;
-    }
-    console_printf("Opened file 'testfile'.\n");
-
+    console_printf("Mounted filesystem on blk device.\n");
 
     // Test block device read
-    // THIS IS THE GIANT BLOCK THAT IS BEING READ FROM
     char blkbuf[512];
     long blk_bytes_read;
 
@@ -165,7 +87,7 @@ void main(void) {
         console_printf("ioread from blk device failed with error %ld\n", blk_bytes_read);
     } else {
         console_printf("Read %ld bytes from blk device.\n", blk_bytes_read);
-        // Print data in hex (arbitrary choice, ik)
+        // Print data in hex
         for (int i = 0; i < blk_bytes_read; i++) {
             console_printf("%02x ", (unsigned char)blkbuf[i]);
             if ((i+1)%16 == 0) console_printf("\n");
@@ -173,7 +95,7 @@ void main(void) {
         console_printf("\n");
     }
 
-    // Test block device write (the device should not be read-only hopefully???)
+    // Test block device write (if not read-only)
     const char *blkdata = "Data to write to block device.";
     long blk_bytes_written;
 
@@ -184,18 +106,18 @@ void main(void) {
         console_printf("Wrote %ld bytes to blk device.\n", blk_bytes_written);
     }
 
-    ioseek(blkio, 0);
-    blk_bytes_read = ioread(blkio, blkbuf, strlen(blkdata));
-    if (blk_bytes_written < 0) {
-        console_printf("ioread to blk device failed with error %ld\n", blk_bytes_written);
+    ioseek(blkio, 0); // Seek to the beginning of the block device
+    blk_bytes_read = ioread(blkio, blkbuf, sizeof(blkbuf));
+    if (blk_bytes_read < 0) {
+        console_printf("ioread from blk device failed with error %ld\n", blk_bytes_read);
     } else {
-        console_printf("Read (%ld) bytes to blk device: %s\n", blk_bytes_written, blkbuf);
-    }
-    blk_bytes_read = ioread(blkio, blkbuf, strlen(blkdata));
-    if (blk_bytes_written < 0) {
-        console_printf("ioread to blk device failed with error %ld\n", blk_bytes_written);
-    } else {
-        console_printf("Read (%ld) bytes to blk device: %s\n", blk_bytes_written, blkbuf);
+        console_printf("Read %ld bytes from blk device.\n", blk_bytes_read);
+        // Print data in hex
+        for (int i = 0; i < blk_bytes_read; i++) {
+            console_printf("%02x ", (unsigned char)blkbuf[i]);
+            if ((i+1)%16 == 0) console_printf("\n");
+        }
+        console_printf("\n");
     }
 
     // Test block device IOCTL commands
@@ -224,13 +146,13 @@ void main(void) {
     }
 
     // Test filesystem functions
-    // struct io_intf *fileio;
-    // result = fs_open("testfile", &fileio);
-    // if (result != 0) {
-    //     console_printf("fs_open failed with error %d\n", result);
-    //     return;
-    // }
-    // console_printf("Opened file 'testfile'.\n");
+    struct io_intf *fileio;
+    result = fs_open("testfile", &fileio);
+    if (result != 0) {
+        console_printf("fs_open failed with error %d\n", result);
+        return;
+    }
+    console_printf("Opened file 'testfile'.\n");
 
     // Read from the file
     char buffer[128];
