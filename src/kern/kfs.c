@@ -12,7 +12,7 @@
 #define FD_USED 1
 #define MAX_NAME_SIZE 32 //(bytes)
 
-// Create file descriptor struct`
+// Create file descriptor struct
 typedef struct file_desc
 {
     struct io_intf io;
@@ -73,12 +73,10 @@ Purpose: The purpose of this function is to mount the filesystem by providing th
 necessary block device. This allows for further filesystem operations like read and write.
 
 */
-// TODO: change errors
 int fs_mount(struct io_intf *io){
     // Check if filesystem and io are initialized properly.
     if (!fs_initialized || io == NULL){
-        // Error
-        return -EINVAL; //
+        return -EINVAL; 
     }
     // Set the mountedIO variable to the device block.
     mountedIO = io;
@@ -208,8 +206,25 @@ void fs_close(struct io_intf *io)
     }
 }
 
-/*
-*/
+/**
+ * Name: fs_write
+ * 
+ * Inputs:
+ *  struct io_intf *    -> io
+ *  const void *        -> buf
+ *  unsigned long       -> n
+ * 
+ * Outputs:
+ *  long                -> number of written bytes / error code
+ * 
+ * Purpose:
+ *  The purpose of this function is to write to the file system by taking a file (io) and 
+ *  writing to it.
+ * 
+ * Side effects:
+ *  We are writing to a file, which may cause unexpected behaviour if we do not mean to. This
+ *  also uses the io, which may enable interrupts as change certain registers.
+ */
 long fs_write(struct io_intf *io, const void *buf, unsigned long n)
 {
     //Check if input parameters have valid values.
@@ -243,7 +258,24 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
 
 }
 
-/*
+/**
+ * Name: fs_read
+ * 
+ * Inputs:
+ *  struct io_intf *    -> io
+ *  const void *        -> buf
+ *  unsigned long       -> n
+ * 
+ * Outputs:
+ *  long                -> number of read bytes / error code
+ * 
+ * Purpose:
+ *  The purpose of this function is to read to the file system by taking a file (io) and 
+ *  reading to it.
+ * 
+ * Side effects:
+ *  We are reading from a file, which may cause unexpected behaviour if we do not mean to. This
+ *  also uses the io, which may enable interrupts as change certain registers.
  */
 long fs_read(struct io_intf *io, void *buf, unsigned long n)
 {
@@ -280,6 +312,22 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
     return -1;
 }
 
+/**
+ * Name: fs_getlen
+ * 
+ * Inputs:
+ *  file_t *    -> fd
+ *  void *      -> arg
+ * 
+ * Outputs:
+ *  int         -> error code
+ * 
+ * Purpose:
+ *  The purpose of this function is to get the length of the file.
+ * 
+ * Side effects:
+ *  No significant side effects.
+ */
 int fs_getlen(file_t *fd, void *arg){
     if (fd == NULL || arg == NULL){
         return -1;
@@ -289,6 +337,22 @@ int fs_getlen(file_t *fd, void *arg){
     return 0;
 }
 
+/**
+ * Name: fs_getpos
+ * 
+ * Inputs:
+ *  file_t *    -> fd
+ *  void *      -> arg
+ * 
+ * Outputs:
+ *  int         -> error code
+ * 
+ * Purpose:
+ *  The purpose of this function is to get the position of the file.
+ * 
+ * Side effects:
+ *  No significant side effects.
+ */
 int fs_getpos(file_t *fd, void *arg){
     if (fd == NULL || arg == NULL){
         return -1;
@@ -298,6 +362,22 @@ int fs_getpos(file_t *fd, void *arg){
     return 0;
 }
 
+/**
+ * Name: fs_setpos
+ * 
+ * Inputs:
+ *  file_t *    -> fd
+ *  void *      -> arg
+ * 
+ * Outputs:
+ *  int         -> error code
+ * 
+ * Purpose:
+ *  The purpose of this function is to set the position of the file.
+ * 
+ * Side effects:
+ *  We are setting a register, so we may be causing errors by doing this erraneously.
+ */
 int fs_setpos(file_t *fd, void *arg)
 {
     if (fd == NULL || arg == NULL){
@@ -311,6 +391,22 @@ int fs_setpos(file_t *fd, void *arg)
     return -1;
 }
 
+/**
+ * Name: fs_getblksz
+ * 
+ * Inputs:
+ *  file_t *    -> fd
+ *  void *      -> arg
+ * 
+ * Outputs:
+ *  int         -> error code
+ * 
+ * Purpose:
+ *  The purpose of this function is to get the block size of the file.
+ * 
+ * Side effects:
+ *  No significant side effects.
+ */
 int fs_getblksz(file_t *fd, void *arg){
     if (fd == NULL || arg == NULL){
         return -1; 
@@ -322,6 +418,23 @@ int fs_getblksz(file_t *fd, void *arg){
     return 0; 
 }
 
+/**
+ * Name: fs_ioctl
+ * 
+ * Inputs
+ *  struct io_intf *    -> io
+ *  int                 -> cmd
+ *  void *              -> arg
+ * 
+ * Outputs:
+ *  int         -> error code
+ * 
+ * Purpose:
+ *  The purpose of this function is to run a specific special command that is in the io.
+ * 
+ * Side effects:
+ *  Different functions called in here may enable interrupts or access registers.
+ */
 int fs_ioctl(struct io_intf *io, int cmd, void *arg){
     if (io == NULL || arg == NULL){
         return -1; 
