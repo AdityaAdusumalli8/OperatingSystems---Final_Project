@@ -47,11 +47,16 @@ typedef struct elf64_phdr {
   uint64_t p_offset;		/* Segment file offset */
   uint64_t p_vaddr;		/* Segment virtual address */
   uint64_t p_paddr;		/* Segment physical address */
-  uint32_t p_filesz;		/* Segment size in file */
-  uint32_t p_memsz;		/* Segment size in memory */
-  uint32_t p_align;		/* Segment alignment, file & memory */
+  uint64_t   p_filesz;
+  uint64_t   p_memsz;
+  uint64_t   p_align;
 } Elf64_Phdr;
 
+
+//elf_load
+//inputs: io - pointer to the io interface to read the .elf from
+//        entryptr - double pointer to write the entry point of the program to
+//returns: status of elf_load - 0 represents success
 int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)){
   console_printf("into elf_load\n");
     struct elf64_hdr hdr;
@@ -108,11 +113,12 @@ int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)){
       // Read program header into phdr
       long bytes_read = ioread(io, &phdr, sizeof(Elf64_Phdr));
       // Ensure we read the whole header
-      if(bytes_read < sizeof(hdr)){
+      if(bytes_read < sizeof(Elf64_Phdr)){
         return -100 + bytes_read - sizeof(Elf64_Phdr);
       }
       // Ensure that the data is loadable into memory
       if(phdr.p_type != PT_LOAD){
+        console_printf("skipping a not load!\n");
         continue;
       }
 
@@ -124,10 +130,13 @@ int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)){
 
       // Move io object to point to the data to copy
       ioseek(io, phdr.p_offset);
-
+      console_printf("4\n");
       // Read data from io object into memory at mem pointer
       ioread(io, phdr.p_vaddr, phdr.p_filesz);
+      console_printf("5, wrote to %x\n", phdr.p_vaddr);
       memptr = phdr.p_vaddr + phdr.p_filesz;
+      console_printf("6, diff=%d\n", (phdr.p_memsz - phdr.p_filesz));
+
 
       // Fill up rest of memory with zeroes
       for(int extra = 0; extra < (phdr.p_memsz - phdr.p_filesz); extra++){

@@ -188,11 +188,14 @@ void main(void) {
     // struct io_intf * trek;
     void * entryptr;
     // fs_open("trek", &trek);
-    console_printf("result%d\n", elf_load(imgio, entryptr));
+    console_printf("result%d\n", elf_load(imgio, &entryptr));
 
 
     console_printf("%x\n", entryptr);
-
+    int tid = thread_spawn("program", entryptr, NULL);
+    console_printf("joining");
+    thread_join(tid);
+    console_printf("exited");
 
 
 
