@@ -54,6 +54,7 @@ typedef struct elf64_phdr {
 
 
 //elf_load
+//loads an elf file into user memory to be ran as a program.
 //inputs: io - pointer to the io interface to read the .elf from
 //        entryptr - double pointer to write the entry point of the program to
 //returns: status of elf_load - 0 represents success
