@@ -147,12 +147,12 @@ void main(void) {
 
     // Test filesystem functions
     struct io_intf *fileio;
-    result = fs_open("testfile", &fileio);
+    result = fs_open("hello", &fileio);
     if (result != 0) {
         console_printf("fs_open failed with error %d\n", result);
         return;
     }
-    console_printf("Opened file 'testfile'.\n");
+    console_printf("Opened file 'hello'.\n");
 
     // Read from the file
     char buffer[128];

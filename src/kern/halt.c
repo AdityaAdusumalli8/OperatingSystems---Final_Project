@@ -53,6 +53,7 @@ void except_handler(int code, struct trap_frame * tfr) {
 	if (name == NULL)
 		kprintf("Fault %d at %p\n", code, (void*)tfr->mepc);
 	else
+		console_printf("%s at %p\n", name, (void*)tfr->mepc);
 		kprintf("%s at %p\n", name, (void*)tfr->mepc);
 	
     panic(NULL);

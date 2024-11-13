@@ -84,7 +84,6 @@ int fs_mount(struct io_intf *io){
 
     uint8_t statsBuffer[BLOCK_SIZE];
     long bytes_read = ioread(mountedIO, statsBuffer, BLOCK_SIZE);
-    console_printf("%d bytes read\n", bytes_read);
     if(!bytes_read == BLOCK_SIZE){
         return -EINVAL;
     }
@@ -95,6 +94,7 @@ int fs_mount(struct io_intf *io){
         return -EINVAL;
     }
 
+    console_printf("Mounting file system with %d dentries, %d inodes, and %d blocks.\n", stat_block.num_dentries, stat_block.num_inodes, stat_block.num_blocks);
     memcpy(d_entries, statsBuffer + sizeof(stat_block_t), stat_block.num_dentries * sizeof(f_dentry));
 
     // Return Success
@@ -172,6 +172,17 @@ int fs_open(const char *name, struct io_intf **io){
 
     // Modify pointer to contain the io_intf structure of the opened file
     *io = &(newFileDescriptor->io);
+
+//     typedef struct file_desc
+// {
+//     struct io_intf io;
+//     uint64_t file_pos;
+//     uint64_t file_size;
+//     uint32_t inode_num;
+//     uint32_t flags;
+// } file_t;
+
+    console_printf("Loaded file %s with size %d, and inode num %d.\n", name, newFileDescriptor->file_size, newFileDescriptor->inode_num);
     // Return success
     return 0;
 }

@@ -244,12 +244,12 @@ void vioblk_attach(volatile struct virtio_mmio_regs * regs, int irqno) {
     dev->vq.desc[1].addr = (uint64_t)&dev->vq.req_header;
     dev->vq.desc[1].len = sizeof(struct vioblk_request_header);
     dev->vq.desc[1].flags = VIRTQ_DESC_F_NEXT;
-    dev->vq.desc[1].next = 2;
+    dev->vq.desc[1].next = 1;
 
     dev->vq.desc[2].addr = (uint64_t)dev->blkbuf;
     dev->vq.desc[2].len = dev->blksz;
     dev->vq.desc[2].flags = VIRTQ_DESC_F_NEXT;
-    dev->vq.desc[2].next = 3;
+    dev->vq.desc[2].next = 2;
 
     dev->vq.desc[3].addr = (uint64_t)&dev->vq.req_status;
     dev->vq.desc[3].len = sizeof(dev->vq.req_status);
@@ -459,7 +459,6 @@ long vioblk_read (
             // Mark request status as "in progress" and notify the device
             // dev->vq.req_status = 0xFF;
 
-            console_printf("Requesting sector %lu, type %d, status %x\n", dev->vq.req_header.sector, dev->vq.req_header, dev->vq.req_status);
             dev->vq.avail.ring[dev->vq.avail.idx % 1] = 0; // Requesting descriptor 0
             __sync_synchronize();
             dev->vq.avail.idx++;
@@ -470,8 +469,6 @@ long vioblk_read (
             virtio_notify_avail(dev->regs, 0);
             condition_wait(&dev->vq.used_updated);
             intr_restore(i);
-
-            console_printf("%s\n", dev->blkbuf);
 
             // Check the status of the completed request
             if (dev->vq.req_status != VIRTIO_BLK_S_OK) {
@@ -484,9 +481,7 @@ long vioblk_read (
         }
 
         // Copy data from the block buffer to the provided user buffer
-        console_printf("Copying %lu bytes from blkbuf offset %lu\n", n, blkoff);
         memcpy(buf, dev->blkbuf + blkoff, n);
-        console_printf("Reading %s from buffer\n", buf);
         buf = (char *)buf + n;
         bufsz -= n;
         total += n;
@@ -571,7 +566,6 @@ long vioblk_write (
         } else {
             dev->bufblkno = blkno;
         }
-        console_printf("writing %s to buffer\n", buf + buf_off);
         memcpy(dev->blkbuf + blkoff, buf + buf_off, nbytes);
 
         dev->vq.req_header.type = VIRTIO_BLK_T_OUT;
