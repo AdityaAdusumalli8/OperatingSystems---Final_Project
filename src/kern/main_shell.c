@@ -129,9 +129,10 @@ void shell_main(struct io_intf * termio_raw) {
 
         result = elf_load(exeio, &exe_entry);
 
-        console_printf("elf_load(\"%s\") returned %d", cmdbuf, result);
+        console_printf("elf_load(\"%s\") returned %d, gave pointer %x.\n", cmdbuf, result, exe_entry);
+        console_printf("debug %x %x %x \n", &exe_entry, exe_entry, (*exe_entry));
 
-        debug("elf_load(\"%s\") returned %d", cmdbuf, result);
+        debug("elf_load(\"%s\") returned %d\n", cmdbuf, result);
 
         if (result < 0) {
             ioprintf(termio, "%s: Error %d\n", -result);

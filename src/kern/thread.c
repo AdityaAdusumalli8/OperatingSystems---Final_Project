@@ -299,53 +299,30 @@ int thread_join_any(void) {
     panic("spurious child_exit signal");
 }
 
+// Wait for specific child thread to exit. Returns the thread id of the child.
 /**
- * @name thread_join
- * 
- * @arg int tid     -> thread id
- * 
- * @return int      -> thread id of the child
- * 
- * @purpose:
- *  The purpose of this function is to wait for a specific child thread to exit so that we may 
- *  recycle the thread. We will set a condition to wait for this event to happen.
- * 
- * @side_effects:
- *  No side effects besides checking edge cases which may trigger unhandled errors.
+ * thread_join - Waits for a specific child thread, specified by tid, to exit. If the given
+ * tid is not a child of the current thread, does nothing. Once the child has exited,
+ * returns the thread id of the child.
+ *
+ * @tid: The thread id of the child on which to wait.
  */
 int thread_join(int tid) {
-    // FIXME your goes code here
-    trace("%s(tid=&d) in %s", __func__, tid, CURTHR->name);
-
-    if (tid < 1 || tid >= NTHR) {
+    // Get the thread to wait on from the thread table.
+    struct thread * thr = thrtab[tid];
+    // Ensure that the thread is a valid child of the current thread
+    if(thr == NULL || thr->parent != CURTHR){
         return -1;
     }
 
-    struct thread *child;
-    child = thrtab[tid];
-
-    if (child == NULL || child->parent != CURTHR)
-        return -1;
-    
-    if (child->state == THREAD_EXITED) {
-        recycle_thread(tid);
-        return tid;
-    }
-
-    while (1) {
+    // Whenever a child thread exits, check if it is the one we're waiting for. If it is,
+    // break out of the loop, recycle the exited thread, and return the thread's id.
+    while(thr->state != THREAD_EXITED){
         condition_wait(&CURTHR->child_exit);
-        child = thrtab[tid];
-
-        if (child == NULL || child->parent != CURTHR)
-            return -1;
-        
-        if (child->state == THREAD_EXITED) {
-            recycle_thread(tid);
-            return tid;
-        }
     }
+    recycle_thread(tid);
+    return tid;
 
-    return -1;
 }
 
 void condition_init(struct condition * cond, const char * name) {
@@ -374,35 +351,21 @@ void condition_wait(struct condition * cond) {
 
     intr_restore(saved_intr_state);
 }
-
 /**
- * @name condition_broadcast
- * 
- * @arg struct condition * cond     -> thread id
- * 
- * @return void                     -> no return
- * 
- * @purpose:
- *  The purpose of this function is to wake up all threads that are currently waiting on the
- *  inputted condition by moving the threads to the ready_list and setting their state to
- *  THREAD_READY so that they may be scheduled.
- * 
- * @side_effects:
- *  No side effects besides waking up threads and modifying the ready_list to contain more ready
- *  to run threads.
+ * condition_broadcast - Used by functions that activate certain conditions to wake all
+ * threads currently waiting on that condition. Sets all threads waiting on the given
+ * condition cond from WAITING to READY, and adds them to the ready list.
+ *
+ * @cond: A pointer to the condition on which to wake waiting threads.
  */
 void condition_broadcast(struct condition * cond) {
-    // FIXME your code goes here
-    struct thread *thr;
-
-    trace("%s(cond=<%s>) in %s", __func__, cond->name, CURTHR->name);
-
-    while (!tlempty(&cond->wait_list)) {
-        thr = tlremove(&cond->wait_list);
-        assert(thr->state == THREAD_WAITING);
-        assert(thr->wait_cond == cond);
-        thr->wait_cond = NULL;
+    // Loop through the condition's wait list
+    while(!tlempty(&(cond->wait_list))){
+        // Remove each thread from the list, ready it, and add to the ready list.
+        struct thread * const thr = tlremove(&(cond->wait_list));
         set_thread_state(thr, THREAD_READY);
+        thr->wait_cond = NULL;
+        thr->list_next = NULL;
         tlinsert(&ready_list, thr);
     }
 }
@@ -466,38 +429,25 @@ void recycle_thread(int tid) {
 }
 
 /**
- * @name suspend_self
- * 
- * @arg void        -> no arguments
- * 
- * @return void     -> no return
- * 
- * @purpose:
- *  The purpose of this function is to suspend the execution of the current running thread and switch
- *  to another thread that is ready to run (this may be the idle thread).
- * 
- * @side_effects:
- *  No side effects besides possibly hitting edge cases as well as calling low level functions like 
- *  _thread_switch, which will switch the thread, causing new execution to occur. This may look like
- *  unexpected behavior.
+ * suspend_self - Voluntarily suspends the state of the current thread. If the thread is
+ * currently running, set it to ready and add it to the back of the ready list. Whether or
+ * not the thread is running, hand control to the next thread in the ready list.
  */
 void suspend_self(void) {
-    // FIXME your code here
-    struct thread *next_thr;
-    struct thread *curr_thr = CURTHR;
-
-    if (curr_thr->state == THREAD_RUNNING) {
-        set_thread_state(curr_thr, THREAD_READY);
-        tlinsert(&ready_list, curr_thr);
+    // Check if the current thread is running. This could not be the case, as suspend_self
+    // is called by condition_wait and by thread_exit.
+    if(CURTHR->state == THREAD_RUNNING){
+        // If the thread is running, set it to ready and add to ready list.
+        set_thread_state(CURTHR, THREAD_READY);
+        CURTHR -> wait_cond = NULL;
+        CURTHR -> list_next = NULL;
+        tlinsert(&ready_list, CURTHR);
     }
 
-    if (tlempty(&ready_list))
-        panic("READY LIST EMPTY (THIS SHOULDN'T HAPPEN)");
-
-    next_thr = tlremove(&ready_list);
-    set_thread_state(next_thr, THREAD_RUNNING);
-    next_thr = _thread_swtch(next_thr);
-    set_running_thread(CURTHR);
+    // Call swtch on the next thread in the ready list, and set its state to RUNNING.
+    struct thread * const thr = tlremove(&ready_list);
+    set_thread_state(thr, THREAD_RUNNING);
+    _thread_swtch(thr);
 }
 
 void tlclear(struct thread_list * list) {

@@ -84,7 +84,7 @@ int fs_mount(struct io_intf *io){
 
     uint8_t statsBuffer[BLOCK_SIZE];
     long bytes_read = ioread(mountedIO, statsBuffer, BLOCK_SIZE);
-    if(!bytes_read == BLOCK_SIZE){
+    if(bytes_read != BLOCK_SIZE){
         return -EINVAL;
     }
 
@@ -96,7 +96,6 @@ int fs_mount(struct io_intf *io){
 
     console_printf("Mounting file system with %d dentries, %d inodes, and %d blocks.\n", stat_block.num_dentries, stat_block.num_inodes, stat_block.num_blocks);
     memcpy(d_entries, statsBuffer + sizeof(stat_block_t), stat_block.num_dentries * sizeof(f_dentry));
-
     // Return Success
     return 0;
 }
@@ -183,6 +182,7 @@ int fs_open(const char *name, struct io_intf **io){
 // } file_t;
 
     console_printf("Loaded file %s with size %d, and inode num %d.\n", name, newFileDescriptor->file_size, newFileDescriptor->inode_num);
+    ioseek(&(newFileDescriptor->io), 0);
     // Return success
     return 0;
 }
@@ -238,6 +238,7 @@ void fs_close(struct io_intf *io)
  */
 long fs_write(struct io_intf *io, const void *buf, unsigned long n)
 {
+    console_printf("AAHHHHH WE'RE DOING A WRITE!!!!!\n");
     //Check if input parameters have valid values.
     if (io == NULL || buf == NULL || n == 0){
         return -1; 
@@ -296,31 +297,60 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
         return -1;
     }
 
-    // Find the file descriptor
-    file_t *readFileDescriptor = NULL;
-    for (int i = 0; i < MAX_FILES; i++)
-    {
-        if (&(fileDescriptorsArray[i].io) == io)
-        {
-            // Initialize the file desriptot
-            readFileDescriptor = &fileDescriptorsArray[i];
-            // Check if the size read fits within max file size
-            long size_limit_read = readFileDescriptor->file_size - readFileDescriptor->file_pos;
-            if (n > size_limit_read)
-            {
-                n = size_limit_read;
-            }
+    console_printf("Doing a read!\n");
 
-            // Perform read and update the file position
-            long readBytes = ioread(io, buf, n);
-            if (readBytes > 0)
-            {
-                readFileDescriptor->file_pos += readBytes;
-            }
-            return readBytes;
+    // Find the file descriptor
+    file_t *readFileDescriptor = (void *)io - offsetof(file_t, io);
+    if(readFileDescriptor != 0){
+        console_printf("Found file with size %d at inode %d.\n", readFileDescriptor->file_size, readFileDescriptor->inode_num);
+    }
+
+    // Check if the size read fits within max file size
+    long size_limit_read = readFileDescriptor->file_size - readFileDescriptor->file_pos;
+    if (n > size_limit_read)
+    {
+        n = size_limit_read;
+    }
+
+    long readBytes = 0; 
+    // Calculate the offset to the inode of the file
+    uint32_t inode_num = readFileDescriptor->inode_num;
+    uint32_t inode_offset = (inode_num + 1) * BLOCK_SIZE;
+    while(n > 0){
+        // Calculate how many bytes to read
+        uint32_t bytesToRead = n;
+        uint32_t block_offset = readFileDescriptor->file_pos % BLOCK_SIZE;
+        if(bytesToRead + block_offset > BLOCK_SIZE)
+        {
+            bytesToRead = BLOCK_SIZE - block_offset;
+        }
+
+        // Perform read and update the file position
+        // Get the current data block to read from
+        uint32_t block_num = readFileDescriptor->file_pos / BLOCK_SIZE;
+        ioseek(mountedIO, inode_offset + sizeof(uint32_t) + block_num);
+
+        uint32_t fs_block_num = 0;
+        ioread(mountedIO, &fs_block_num, sizeof(uint32_t)); 
+
+        console_printf("Block number is %d.\n", fs_block_num);
+        ioseek(mountedIO, (stat_block.num_inodes + 1) * BLOCK_SIZE + block_offset);
+
+        long readBytesN = ioread(mountedIO, buf, n);
+        console_printf("Read %d bytes!\n", readBytesN);
+        if (readBytesN > 0)
+        {
+            readFileDescriptor->file_pos += readBytesN;
+            readBytes += readBytesN;
+            n -= readBytesN;
+            buf += readBytesN;
+        }
+        else{
+            console_printf("Read 0 or fewer bytes.");
+            return -EINVAL;
         }
     }
-    return -1;
+    return readBytes;
 }
 
 /**
@@ -343,8 +373,7 @@ int fs_getlen(file_t *fd, void *arg){
     if (fd == NULL || arg == NULL){
         return -1;
     }
-    uint64_t *recieve_length = (uint64_t *)arg;
-    *recieve_length = fd->file_size;
+    *(uint64_t*)arg = fd->file_size;
     return 0;
 }
 

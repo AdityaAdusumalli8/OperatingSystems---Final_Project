@@ -4,6 +4,7 @@
 #include "elf.h"
 #include "io.h"
 #include "console.h"
+#include "string.h"
 
 #define LOAD_LOCATION 0x80100000
 #define LOAD_END      0x81000000
@@ -103,7 +104,7 @@ int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)){
     // At this point, the file is valid, and should be loaded
     // Set entryptr to point to entry point
     *entryptr = hdr.e_entry;
-    console_printf("3\n");
+    console_printf("3, entry pointer to %x\n", hdr.e_entry);
 
     // Loop program headers
     struct elf64_phdr phdr;
@@ -133,17 +134,14 @@ int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)){
       ioseek(io, phdr.p_offset);
       console_printf("4\n");
       // Read data from io object into memory at mem pointer
-      ioread(io, phdr.p_vaddr, phdr.p_filesz);
-      console_printf("5, wrote to %x\n", phdr.p_vaddr);
-      memptr = phdr.p_vaddr + phdr.p_filesz;
+      char cpy_buf[phdr.p_memsz];
+      memset(cpy_buf, 0, phdr.p_memsz);
+
+      long bytes_to_vaddr = ioread(io, cpy_buf, phdr.p_filesz);
+      memcpy(phdr.p_vaddr, cpy_buf, phdr.p_filesz);
+      console_printf("5, wrote %d bytes to %x\n", bytes_to_vaddr, phdr.p_vaddr);
+      memptr = phdr.p_vaddr + phdr.p_memsz;
       console_printf("6, diff=%d\n", (phdr.p_memsz - phdr.p_filesz));
-
-
-      // Fill up rest of memory with zeroes
-      for(int extra = 0; extra < (phdr.p_memsz - phdr.p_filesz); extra++){
-        *memptr = 0;
-        memptr += 1;
-      }
     }
 
     return 0;
