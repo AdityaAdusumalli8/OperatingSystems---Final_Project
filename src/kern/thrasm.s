@@ -69,50 +69,78 @@ _thread_swtch:
 # void _thread_setup (
 #      struct thread * thr,             in a0
 #      void * sp,                       in a1
-#      void (*start)(void * arg),       in a2
+#      void (*start)(void *, void *),   in a2
 #      void * arg)                      in a3
 #
 # Sets up the initial context for a new thread. The thread will begin execution
-# in /start/, receiving /arg/ as the first argument. 
+# in /start/, receiving the five arguments passed to _thread_set after /start/.
 
 _thread_setup:
-        # FIXME your code goes here
-        sd      a1, 104(a0)             # Store sp in thread_context's sp
-        la      t0, thread_start        # Load address of thread_start into t0
-        sd      t0, 96(a0)              # store thread_start into thread_context's ra
-        sd      a2, 0(a0)               # Store start function pointer into thread_context's s0
-        sd      a3, 8(a0)               # Store arg into thread_context's s1
+        # Write initial register values into struct thread_context, which is the
+        # first member of struct thread.
+        
+        sd      a1, 13*8(a0)    # Initial sp
+        sd      a2, 11*8(a0)    # s11 <- start
+        sd      a3, 0*8(a0)     # s0 <- arg 0
+        sd      a4, 1*8(a0)     # s1 <- arg 1
+        sd      a5, 2*8(a0)     # s2 <- arg 2
+        sd      a6, 3*8(a0)     # s3 <- arg 3
+        sd      a7, 4*8(a0)     # s4 <- arg 4
+
+        # put address of thread entry glue into t1 and continue execution at 1f
+
+        jal     t0, 1f
+
+        # The glue code below is executed when we first switch into the new thread
+
+        la      ra, thread_exit # child will return to thread_exit
+        mv      a0, s0          # get arg argument to child from s0
+        mv      a1, s1          # get arg argument to child from s0
+        mv      fp, sp          # frame pointer = stack pointer
+        jr      s11             # jump to child entry point (in s1)
+
+1:      # Execution of _thread_setup continues here
+
+        sd      t0, 12*8(a0)    # put address of above glue code into ra slot
 
         ret
 
-        .global thread_start
-        .type thread_start, @function
+        .global _thread_finish_jump
+        .type   _thread_finish_jump, @function
 
-thread_start:
-        mv      a0, s1                  # Move arg from s1 to a0
-        jalr    s0                      # Jump to the start function (address was set to s0)
-        la      t0, thread_exit         # When start returns, we can safely call thread_exit
-        jr      t0
+# void __attribute__ ((noreturn)) _thread_finish_jump (
+#      struct thread_stack_anchor * stack_anchor,
+#      uintptr_t usp, uintptr_t upc, ...);
+
+
+_thread_finish_jump:
+        # While in user mode, sscratch points to a struct thread_stack_anchor
+        # located at the base of the stack, which contains the current thread
+        # pointer and serves as our starting stack pointer.
+
+        # TODO: FIXME your code here
+
 
 # Statically allocated stack for the idle thread.
 
-        .section        .data.idle_stack
-        .align          16
+        .section        .data.stack, "wa", @progbits
+        .balign          16
         
         .equ            IDLE_STACK_SIZE, 1024
-        .equ            IDLE_GUARD_SIZE, 0
 
-        .global         _idle_stack
-        .type           _idle_stack, @object
-        .size           _idle_stack, IDLE_STACK_SIZE
+        .global         _idle_stack_lowest
+        .type           _idle_stack_lowest, @object
+        .size           _idle_stack_lowest, IDLE_STACK_SIZE
 
-        .global         _idle_guard
-        .type           _idle_guard, @object
-        .size           _idle_guard, IDLE_GUARD_SIZE
+        .global         _idle_stack_anchor
+        .type           _idle_stack_anchor, @object
+        .size           _idle_stack_anchor, 2*8
 
-_idle_stack:
+_idle_stack_lowest:
         .fill   IDLE_STACK_SIZE, 1, 0xA5
 
-_idle_guard:
-        .fill   IDLE_GUARD_SIZE, 1, 0x5A
+_idle_stack_anchor:
+        .global idle_thread # from thread.c
+        .dword  idle_thread
+        .fill   8
         .end
