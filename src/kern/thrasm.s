@@ -8,14 +8,10 @@
 # the thread to be resumed. Returns a pointer to the previously-scheduled
 # thread. This function is called in thread.c. The spelling of swtch is
 # historic.
-        .text
-        .global thread_exit
-        .type thread_exit, function
 
+        .text
         .global _thread_swtch
         .type   _thread_swtch, @function
-
-
 
 _thread_swtch:
 
@@ -80,31 +76,23 @@ _thread_swtch:
 # in /start/, receiving /arg/ as the first argument. 
 
 _thread_setup:
-        # Set up stack pointer and return address
-        sd a1, 13*8(a0)
-        la t0, first_ra
-        sd t0, 12*8(a0)
-
-        # Put start and arg in saved register space on the thread's stack.
-        # Using s2 <- a2 and s3 <- a3 for clarity.
-        sd a2, 2*8(a0)
-        sd a3, 3*8(a0)
-
-        # Return now. We can't set ra = *start since we don't want to run the thread,
-        # but we also have no way of ensuring arg stays in a0. This must be done later.
-        ret
-
-        # When thread called for the first time, begin execution here, and run *start.
-        first_ra:
-
-        # Call start with arg as argument
-        mv a0, s3
-        jalr ra, 0(s2)
-
-        # If the jalr returns, execute thread_exit
-        jal ra, thread_exit
+        # FIXME your code goes here
+        sd      a1, 104(a0)             # Store sp in thread_context's sp
+        la      t0, thread_start        # Load address of thread_start into t0
+        sd      t0, 96(a0)              # store thread_start into thread_context's ra
+        sd      a2, 0(a0)               # Store start function pointer into thread_context's s0
+        sd      a3, 8(a0)               # Store arg into thread_context's s1
 
         ret
+
+        .global thread_start
+        .type thread_start, @function
+
+thread_start:
+        mv      a0, s1                  # Move arg from s1 to a0
+        jalr    s0                      # Jump to the start function (address was set to s0)
+        la      t0, thread_exit         # When start returns, we can safely call thread_exit
+        jr      t0
 
 # Statically allocated stack for the idle thread.
 

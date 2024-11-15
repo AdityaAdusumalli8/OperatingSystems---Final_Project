@@ -359,15 +359,8 @@ void condition_wait(struct condition * cond) {
  * @cond: A pointer to the condition on which to wake waiting threads.
  */
 void condition_broadcast(struct condition * cond) {
-    // Loop through the condition's wait list
-    while(!tlempty(&(cond->wait_list))){
-        // Remove each thread from the list, ready it, and add to the ready list.
-        struct thread * const thr = tlremove(&(cond->wait_list));
-        set_thread_state(thr, THREAD_READY);
-        thr->wait_cond = NULL;
-        thr->list_next = NULL;
-        tlinsert(&ready_list, thr);
-    }
+    tlappend(&ready_list, &(cond->wait_list));
+    tlclear(&(cond->wait_list));
 }
 
 // INTERNAL FUNCTION DEFINITIONS
@@ -394,6 +387,8 @@ static void set_running_thread(struct thread * thr) {
     asm inline ("mv tp, %0" :: "r"(thr) : "tp");
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
 const char * thread_state_name(enum thread_state state) {
     static const char * const names[] = {
         [THREAD_UNINITIALIZED] = "UNINITIALIZED",
@@ -409,6 +404,7 @@ const char * thread_state_name(enum thread_state state) {
     else
         return "UNDEFINED";
 };
+#pragma GCC diagnostic pop
 
 void recycle_thread(int tid) {
     struct thread * const thr = thrtab[tid];

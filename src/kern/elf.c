@@ -30,7 +30,7 @@ typedef struct elf64_hdr {
   uint16_t e_type;
   uint16_t e_machine;
   uint32_t e_version;
-  uint64_t e_entry;		/* Entry point virtual address */
+  uintptr_t e_entry;		/* Entry point virtual address */
   uint64_t e_phoff;		/* Program header table file offset */
   uint64_t e_shoff;		/* Section header table file offset */
   uint32_t e_flags;
@@ -46,8 +46,8 @@ typedef struct elf64_phdr {
   uint32_t p_type;
   uint32_t p_flags;
   uint64_t p_offset;		/* Segment file offset */
-  uint64_t p_vaddr;		/* Segment virtual address */
-  uint64_t p_paddr;		/* Segment physical address */
+  uintptr_t p_vaddr;		/* Segment virtual address */
+  uintptr_t p_paddr;		/* Segment physical address */
   uint64_t   p_filesz;
   uint64_t   p_memsz;
   uint64_t   p_align;
@@ -103,7 +103,7 @@ int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)){
     
     // At this point, the file is valid, and should be loaded
     // Set entryptr to point to entry point
-    *entryptr = hdr.e_entry;
+    *entryptr = (void *)(struct io_intf *)hdr.e_entry;
     console_printf("3, entry pointer to %x\n", hdr.e_entry);
 
     // Loop program headers
@@ -137,7 +137,7 @@ int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)){
       memset(cpy_buf, 0, phdr.p_memsz);
 
       long bytes_to_vaddr = ioread(io, cpy_buf, phdr.p_filesz);
-      memcpy(phdr.p_vaddr, cpy_buf, phdr.p_memsz);
+      memcpy((void *)phdr.p_vaddr, cpy_buf, phdr.p_memsz);
       console_printf("5, wrote %d bytes to %x\n", bytes_to_vaddr, phdr.p_vaddr);
     }
 

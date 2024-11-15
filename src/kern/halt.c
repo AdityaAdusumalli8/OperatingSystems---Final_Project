@@ -50,11 +50,12 @@ void except_handler(int code, struct trap_frame * tfr) {
     if (0 <= code && code < sizeof(except_names)/sizeof(except_names[0]))
 		name = except_names[code];
 	
-	if (name == NULL)
+	if (name == NULL) {
 		kprintf("Fault %d at %p\n", code, (void*)tfr->mepc);
-	else
+	} else {
 		console_printf("%s at %p\n", name, (void*)tfr->mepc);
 		kprintf("%s at %p\n", name, (void*)tfr->mepc);
+	}
 	
     panic(NULL);
 }

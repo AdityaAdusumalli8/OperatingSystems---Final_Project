@@ -6,6 +6,7 @@
 #include "halt.h"
 #include "csr.h"
 #include "plic.h"
+#include "timer.h"
 
 #include <stddef.h>
 
