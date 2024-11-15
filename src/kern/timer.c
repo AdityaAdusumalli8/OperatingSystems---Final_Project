@@ -15,8 +15,8 @@ char timer_initialized = 0;
 struct condition tick_1Hz;
 struct condition tick_10Hz;
 
-uint64_t tick_1Hz_count = 0;
-uint64_t tick_10Hz_count = 0;
+uint64_t tick_1Hz_count;
+uint64_t tick_10Hz_count;
 
 #define MTIME_FREQ 10000000 // from QEMU include/hw/intc/riscv_aclint.h
 
@@ -55,29 +55,33 @@ void timer_start(void) {
 }
 
 /**
- * timer_intr_handler - Serviices an interrupt request raised by the RISC-V timer.
- * Broadcasts conditions every tenth of a second and every second so that time-based
- * events occur. 
+ * @name timer_intr_handler
+ * 
+ * @arg void        -> no arguments
+ * 
+ * @return void     -> no return
+ * 
+ * @purpose:
+ *  This will be called in intr_handler() in intr.c. The purpose of this function is to handle
+ *  interrupts for every 1Hz as well as every 10Hz. We will then broadcast for that condition to
+ *  let the threads know the 1Hz/10Hz has occurred.
+ * 
+ * @side_effects:
+ *  No side effects besides broadcasting certain conditions which will free threads.
  */
 void timer_intr_handler(void) {
-    // Get the current system elapsed time in clock cycles
-    uint64_t clock_cycles = get_mtime();
+    // FIXME your code goes here
 
-    // If more second have passed than the 1Hz count, increment it and broadcast.
-    if(clock_cycles / MTIME_FREQ > tick_1Hz_count){
+    // Get the current time + the offset for the 10Hz condition.
+    set_mtimecmp(get_mtimecmp() + MTIME_FREQ / 10);
+    tick_10Hz_count++;
+    condition_broadcast(&tick_10Hz);
+
+    // Use modulo 10 to go from 10Hz to 1Hz
+    if (tick_10Hz_count % 10 == 0) {
         tick_1Hz_count++;
         condition_broadcast(&tick_1Hz);
     }
-
-    // If more second have passed than the 10Hz count, increment it and broadcast.
-    if(clock_cycles / (MTIME_FREQ/10) > tick_10Hz_count){
-        tick_10Hz_count++;
-        condition_broadcast(&tick_10Hz);
-    }
-
-    // Set the new mtcmp value so that the interrupt triggers after 1/10 of a second.
-    set_mtimecmp(get_mtimecmp() + MTIME_FREQ/10);
-
 }
 
 // Hard-coded MTIMER device addresses for QEMU virt device
