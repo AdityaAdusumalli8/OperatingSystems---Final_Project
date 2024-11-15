@@ -108,7 +108,6 @@ int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)){
 
     // Loop program headers
     struct elf64_phdr phdr;
-    uint8_t *memptr = LOAD_LOCATION;
     for(int idx = 0; idx < hdr.e_phnum; idx++){
       // Move io object to point to program header
       ioseek(io, idx * hdr.e_phentsize + hdr.e_phoff);
@@ -138,10 +137,8 @@ int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)){
       memset(cpy_buf, 0, phdr.p_memsz);
 
       long bytes_to_vaddr = ioread(io, cpy_buf, phdr.p_filesz);
-      memcpy(phdr.p_vaddr, cpy_buf, phdr.p_filesz);
+      memcpy(phdr.p_vaddr, cpy_buf, phdr.p_memsz);
       console_printf("5, wrote %d bytes to %x\n", bytes_to_vaddr, phdr.p_vaddr);
-      memptr = phdr.p_vaddr + phdr.p_memsz;
-      console_printf("6, diff=%d\n", (phdr.p_memsz - phdr.p_filesz));
     }
 
     return 0;

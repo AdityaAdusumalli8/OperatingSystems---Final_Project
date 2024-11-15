@@ -147,12 +147,12 @@ void main(void) {
 
     // Test filesystem functions
     struct io_intf *fileio;
-    result = fs_open("hello", &fileio);
+    result = fs_open("zork", &fileio);
     if (result != 0) {
         console_printf("fs_open failed with error %d\n", result);
         return;
     }
-    console_printf("Opened file 'hello'.\n");
+    console_printf("Opened file 'zork'.\n");
 
     // Read from the file
     char buffer[128];
@@ -167,14 +167,44 @@ void main(void) {
     }
 
     // Write to the file
-    const char *data = "Hello, filesystem!";
-    long bytes_written;
+    const char *data = "AAAAAAAAAAAAAAAAAA";
+    const char longBuf[4096];
+    const char *data2 = "AAAAAAAAAAAAAAAAAAA";
+    memset(longBuf, 0, 4096);
+    memcpy(longBuf + (4096 - strlen(data2) - 1), data2, strlen(data2));
 
-    bytes_written = iowrite(fileio, data, strlen(data));
+    long bytes_written;
+    ioseek(fileio, 0);
+    bytes_written = iowrite(fileio, data, strlen(data) + 1);
     if (bytes_written < 0) {
         console_printf("iowrite failed with error %ld\n", bytes_written);
     } else {
         console_printf("Wrote %ld bytes to file.\n", bytes_written);
+    }
+
+    ioseek(fileio, 0);
+    bytes_read = ioread(fileio, buffer, strlen(data) + 1);
+    if (bytes_read < 0) {
+        console_printf("ioread failed with error %ld\n", bytes_read);
+    } else {
+        buffer[bytes_read] = '\0'; // Null-terminate the buffer
+        console_printf("Read back %ld bytes from file: %s\n", bytes_read, buffer);
+    }
+
+    bytes_written = iowrite(fileio, data2, 4096);
+    if (bytes_written < 0) {
+        console_printf("iowrite failed 2 with error %ld\n", bytes_written);
+    } else {
+        console_printf("Wrote %ld bytes to file again.\n", bytes_written);
+    }
+
+    ioseek(fileio, 0);
+    bytes_read = ioread(fileio, buffer, sizeof(buffer)-1);
+    if (bytes_read < 0) {
+        console_printf("ioread failed with error %ld\n", bytes_read);
+    } else {
+        buffer[bytes_read] = '\0'; // Null-terminate the buffer
+        console_printf("Read back %ld bytes from file: %s\n", bytes_read, buffer);
     }
 
     // Test filesystem IOCTL commands
@@ -212,17 +242,18 @@ void main(void) {
 
     // Close the file
     fs_close(fileio);
-    console_printf("Closed file 'testfile'.\n");
+    console_printf("Closed file 'zork'.\n");
 
     // Re-open the file and read to verify data
-    result = fs_open("testfile", &fileio);
+    result = fs_open("zork", &fileio);
     if (result != 0) {
         console_printf("fs_open failed with error %d\n", result);
         return;
     }
-    console_printf("Opened file 'testfile' again.\n");
+    console_printf("Opened file 'zork' again.\n");
 
     memset(buffer, 0, sizeof(buffer));
+    ioseek(fileio, 0);
     bytes_read = ioread(fileio, buffer, sizeof(buffer)-1);
     if (bytes_read < 0) {
         console_printf("ioread failed with error %ld\n", bytes_read);
@@ -231,8 +262,18 @@ void main(void) {
         console_printf("Read %ld bytes from file: %s\n", bytes_read, buffer);
     }
 
+    memset(buffer, 0, sizeof(buffer));
+    ioseek(fileio, 4096);
+    bytes_read = ioread(fileio, buffer, sizeof(buffer)-1);
+    if (bytes_read < 0) {
+        console_printf("ioread 2 failed with error %ld\n", bytes_read);
+    } else {
+        buffer[bytes_read] = '\0';
+        console_printf("Read %ld bytes from file again: %s\n", bytes_read, buffer);
+    }
+
     fs_close(fileio);
-    console_printf("Closed file 'testfile'.\n");
+    console_printf("Closed file 'zork'.\n");
 
     // Can uncomment this to go to the terminal if you want
     // shell_main(termio);

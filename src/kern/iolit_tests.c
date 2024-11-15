@@ -159,12 +159,6 @@ void main(void) {
     ioseek(litio, 64);
     iowrite(litio, data, 32);
 
-    console_printf("Try mount filesystem on lit device.\n");
-    // result = fs_mount(litio);
-    // if (result != 0)
-    //     panic("fs_mount failed");
-    // console_printf("Mounted filesystem on lit device.\n");
-
     // struct io_intf *fileio;
     // result = fs_open("Data", &fileio);
     // if (result != 0) {
@@ -180,15 +174,35 @@ void main(void) {
     
     struct io_lit imglit;
     struct io_intf * imgio;
+    void (*exe_entry)(struct io_intf*);
     void * buf = _companion_f_start;
     size_t size = _companion_f_end - _companion_f_start;
 
-    imgio = iolit_init(&imglit, buf, size);
+    console_printf("start: %x, end %x, size %d", buf, _companion_f_end, size);
 
+    char kfs_buf[size];
+    memcpy(kfs_buf, buf, size);
+
+    imgio = iolit_init(&imglit, kfs_buf, size);
+
+    console_printf("Try mount filesystem on lit device.\n");
+    result = fs_mount(imgio);
+    if (result != 0)
+        panic("fs_mount failed");
+    console_printf("Mounted filesystem on lit device.\n");
+
+    
+    int success = fs_open("hello", imgio);
+    if (success < 0) {
+        if (result == -ENOENT)
+            ioprintf(termio, "%s: File not found\n", "hello");
+        else
+            ioprintf(termio, "%s: Error %d\n", "hello", -result);
+    }
     // struct io_intf * trek;
     void * entryptr;
     // fs_open("trek", &trek);
-    console_printf("result%d\n", elf_load(imgio, &entryptr));
+    console_printf("result%d\n", elf_load(imgio, &exe_entry));
 
 
     console_printf("%x\n", entryptr);
@@ -196,6 +210,8 @@ void main(void) {
     console_printf("joining");
     thread_join(tid);
     console_printf("exited");
+
+    
 
 
 

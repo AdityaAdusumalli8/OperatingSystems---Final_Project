@@ -204,17 +204,9 @@ void fs_close(struct io_intf *io)
     }
 
     // Find the file descriptor associated with the given io_intf
-    for (int i = 0; i < MAX_FILES; i++){
-        if (&(fileDescriptorsArray[i].io) == io)
-        { 
-            fileDescriptorsArray[i].flags = 0; // Mark as unused
-
-            // Set the io_intf function pointers to null
-            fileDescriptorsArray[i].io.ops = NULL;
-
-            return; 
-        }
-    }
+    file_t *closeFileDescriptor = (void *)io - offsetof(file_t, io);
+    closeFileDescriptor->flags = 0;
+    closeFileDescriptor->io.ops = NULL;
 }
 
 /**
@@ -238,35 +230,60 @@ void fs_close(struct io_intf *io)
  */
 long fs_write(struct io_intf *io, const void *buf, unsigned long n)
 {
-    console_printf("AAHHHHH WE'RE DOING A WRITE!!!!!\n");
     //Check if input parameters have valid values.
     if (io == NULL || buf == NULL || n == 0){
         return -1; 
     }
 
     // Find the file descriptor 
-    file_t *writeFileDescriptor = NULL; 
-    for (int i = 0; i < MAX_FILES; i++){
-        if (&(fileDescriptorsArray[i].io) == io)
-        {
-            // Initialize the file desriptot
-            writeFileDescriptor = &fileDescriptorsArray[i];
-            // Check if the size written fits within max file size
-            long size_limit = MAX_FILE_SIZE - writeFileDescriptor->file_pos;
-            if (n > size_limit){
-                n = size_limit;
-            }
+    file_t *writeFileDescriptor = (void *)io - offsetof(file_t, io);
+    // Check if the size written fits within max file size
+    long size_limit = writeFileDescriptor->file_size - writeFileDescriptor->file_pos;
+    if (n > size_limit){
+        n = size_limit;
+    }
 
-            // Perform write and update the file position
-            long writtenBytes = iowrite(io, buf, n);
-            if (writtenBytes>0){
-                writeFileDescriptor->file_pos += writtenBytes;
-            }
-            return writtenBytes;
+    long wroteBytes = 0;
+    uint64_t buf_offset = 0;
+
+    // Calculate the offset to the inode of the file
+    uint32_t inode_num = writeFileDescriptor->inode_num;
+    uint32_t inode_offset = (inode_num + 1) * BLOCK_SIZE;
+    while(n > 0){
+        // Calculate how many bytes to read
+        uint32_t bytesToWrite = n;
+        uint32_t block_offset = writeFileDescriptor->file_pos % BLOCK_SIZE;
+        if(bytesToWrite + block_offset > BLOCK_SIZE)
+        {
+            bytesToWrite = BLOCK_SIZE - block_offset;
         }
 
+        // Perform read and update the file position
+        // Get the current data block to read from
+        uint32_t block_num = writeFileDescriptor->file_pos / BLOCK_SIZE;
+        ioseek(mountedIO, inode_offset + sizeof(uint32_t) * (block_num + 1));
+
+        uint32_t fs_block_num = 0;
+        ioread(mountedIO, &fs_block_num, sizeof(uint32_t)); 
+
+        console_printf("Block number is %d (%d in file) with offset %d.\n", fs_block_num, block_num, block_offset);
+        ioseek(mountedIO, (stat_block.num_inodes + 1 + fs_block_num) * BLOCK_SIZE + block_offset);
+
+        long readBytesN = iowrite(mountedIO, buf + buf_offset, bytesToWrite);
+        console_printf("Wrote %d bytes!\n", readBytesN);
+        if (readBytesN > 0)
+        {
+            writeFileDescriptor->file_pos += readBytesN;
+            wroteBytes += readBytesN;
+            n -= readBytesN;
+            buf_offset += readBytesN;
+        }
+        else{
+            console_printf("Read 0 or fewer bytes.");
+            return -EINVAL;
+        }
     }
-    return -1;
+    return wroteBytes;
 
 }
 
@@ -275,7 +292,7 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
  * 
  * Inputs:
  *  struct io_intf *    -> io
- *  const void *        -> buf
+ *  void *        -> buf
  *  unsigned long       -> n
  * 
  * Outputs:
@@ -328,15 +345,15 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
         // Perform read and update the file position
         // Get the current data block to read from
         uint32_t block_num = readFileDescriptor->file_pos / BLOCK_SIZE;
-        ioseek(mountedIO, inode_offset + sizeof(uint32_t) + block_num);
+        ioseek(mountedIO, inode_offset + sizeof(uint32_t) * (block_num + 1));
 
         uint32_t fs_block_num = 0;
         ioread(mountedIO, &fs_block_num, sizeof(uint32_t)); 
 
-        console_printf("Block number is %d.\n", fs_block_num);
-        ioseek(mountedIO, (stat_block.num_inodes + 1) * BLOCK_SIZE + block_offset);
+        console_printf("Block number is %d (%d in file) with offset %d.\n", fs_block_num, block_num, block_offset);
+        ioseek(mountedIO, (stat_block.num_inodes + 1 + fs_block_num) * BLOCK_SIZE + block_offset);
 
-        long readBytesN = ioread(mountedIO, buf, n);
+        long readBytesN = ioread(mountedIO, buf, bytesToRead);
         console_printf("Read %d bytes!\n", readBytesN);
         if (readBytesN > 0)
         {
@@ -397,8 +414,7 @@ int fs_getpos(file_t *fd, void *arg){
     if (fd == NULL || arg == NULL){
         return -1;
     }
-    uint64_t *recieve_pos = (uint64_t *)arg;
-    *recieve_pos = fd->file_pos;
+    *(uint64_t *)arg = fd->file_pos;
     return 0;
 }
 
@@ -428,7 +444,7 @@ int fs_setpos(file_t *fd, void *arg)
         fd->file_pos = *set_position;
         return 0;
     }
-    return -1;
+    return -EINVAL;
 }
 
 /**
@@ -451,10 +467,7 @@ int fs_getblksz(file_t *fd, void *arg){
     if (fd == NULL || arg == NULL){
         return -1; 
     }
-    uint32_t *blksz_ptr = (uint32_t *)arg;
-
-    *blksz_ptr = BLOCK_SIZE;
-
+    *(uint32_t *)arg = BLOCK_SIZE;
     return 0; 
 }
 
@@ -480,13 +493,7 @@ int fs_ioctl(struct io_intf *io, int cmd, void *arg){
         return -1; 
     }
 
-    file_t *ioctl_fd = NULL;
-    for (int i = 0; i < MAX_FILES; i++){
-        if (&fileDescriptorsArray[i].io == io ){
-            ioctl_fd = &fileDescriptorsArray[i];
-            break;
-        }
-    }
+    file_t *ioctl_fd =  (void *)io - offsetof(file_t, io);
     if (ioctl_fd != NULL){
         switch (cmd){
         case IOCTL_GETLEN:
