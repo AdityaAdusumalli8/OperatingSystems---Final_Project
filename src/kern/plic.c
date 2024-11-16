@@ -17,7 +17,7 @@
 #endif
 
 #define PLIC_SRCCNT 0x400
-#define PLIC_CTXCNT 1
+#define PLIC_CTXCNT 2
 
 // PLIC MEMORY OFFSETS
 #define PLIC_PEND   0x001000
@@ -53,11 +53,11 @@ void plic_init(void) {
     int i;
 
     // Disable all sources by setting priority to 0, enable all sources for
-    // context 0 (M mode on hart 0).
+    // context 1 (S mode on hart 0).
 
     for (i = 0; i < PLIC_SRCCNT; i++) {
         plic_set_source_priority(i, 0);
-        plic_enable_source_for_context(0, i);
+        plic_enable_source_for_context(1, i);
     }
 }
 
@@ -74,15 +74,15 @@ extern void plic_disable_irq(int irqno) {
 }
 
 extern int plic_claim_irq(void) {
-    // Hardwired context 0 (M mode on hart 0)
+    // Hardwired context 1 (S mode on hart 0)
     trace("%s()", __func__);
-    return plic_claim_context_interrupt(0);
+    return plic_claim_context_interrupt(1);
 }
 
 extern void plic_close_irq(int irqno) {
-    // Hardwired context 0 (M mode on hart 0)
+    // Hardwired context 1 (S mode on hart 0)
     trace("%s(irqno=%d)", __func__, irqno);
-    plic_complete_context_interrupt(0, irqno);
+    plic_complete_context_interrupt(1, irqno);
 }
 
 // INTERNAL FUNCTION DEFINITIONS
