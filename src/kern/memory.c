@@ -72,6 +72,13 @@ struct pte {
 #define VPN0(vma) (((vma) >> 12) & 0x1FF)
 #define MIN(a,b) (((a)<(b))?(a):(b))
 
+// Internal constants defintions
+//
+
+#define PGSIZE 3096 // Page size (4 kB)
+#define USER_BASE 0x00000000 // Start of user space?
+#define USER_TOP 0x80000000 // End of user space?
+
 // INTERNAL FUNCTION DECLARATIONS
 //
 
@@ -114,9 +121,6 @@ static struct pte main_pt1_0x80000[PTE_CNT]
     __attribute__ ((section(".bss.pagetable"), aligned(4096)));
 static struct pte main_pt0_0x80000[PTE_CNT]
     __attribute__ ((section(".bss.pagetable"), aligned(4096)));
-
-// EXPORTED VARIABLE DEFINITIONS
-//
 
 // EXPORTED FUNCTION DEFINITIONS
 // 
@@ -242,8 +246,186 @@ void memory_init(void) {
     memory_initialized = 1;
 }
 
+// Allocates a physical page of memory.
+// Returns a pointer to the direct-mapped address of the page.
+// Does not fail; panics if there are no free pages available.
+void * memory_alloc_page(void) {
+    trace("%s()", __func__);
+
+    // Allocate a page from the free list
+    void *pp = palloc();
+    if (!pp) {
+        // No free pages available; panic
+        panic("Out of physical memory");
+    }
+    // Zero out the allocated page before use
+    memset(pp, 0, PAGE_SIZE);
+    return pp;
+}
+
+// Returns a physical memory page to the physical page allocator.
+// The page must have been previously allocated by memory_alloc_page.
+void memory_free_page(void * pp) {
+    trace("%s(%p)", __func__, pp);
+
+    // Return the page to the free list
+    pfree(pp);
+}
+
+// Allocates and maps a physical page.
+// Maps a virtual page to a physical page in the current memory space.
+// The /vma/ argument gives the virtual address of the page to map.
+// The /rwxug_flags/ argument is an OR of the PTE flags.
+void * memory_alloc_and_map_page(uintptr_t vma, uint_fast8_t rwxug_flags) {
+    trace("%s(0x%lx, 0x%x)", __func__, vma, rwxug_flags);
+
+    // Allocate a physical page
+    void *pp = memory_alloc_page();
+
+    // Map the page into the current page table
+    int result = memory_map_page(active_space_root(), vma, pp, rwxug_flags);
+    if (result != 0) {
+        // Mapping failed; panic
+        panic("Failed to map page");
+    }
+
+    return (void *)vma;
+}
+
+// Allocates and maps multiple physical pages in an address range.
+// Equivalent to calling memory_alloc_and_map_page for every page in the range.
+void * memory_alloc_and_map_range(uintptr_t vma, size_t size, uint_fast8_t rwxug_flags) {
+    trace("%s(0x%lx, %zu, 0x%x)", __func__, vma, size, rwxug_flags);
+
+    uintptr_t addr = vma;
+    uintptr_t end = vma + size;
+
+    // Allocate and map each page in the range
+    while (addr < end) {
+        memory_alloc_and_map_page(addr, rwxug_flags);
+        addr += PAGE_SIZE;
+    }
+    return (void *)vma;
+}
+
+// Changes the PTE flags for all pages in a mapped range.
+void memory_set_range_flags(const void * vp, size_t size, uint_fast8_t rwxug_flags) {
+    trace("%s(%p, %zu, 0x%x)", __func__, vp, size, rwxug_flags);
+
+    uintptr_t addr = (uintptr_t)vp;
+    uintptr_t end = addr + size;
+
+    // Update the flags for each page in the range
+    while (addr < end) {
+        memory_set_page_flags((const void *)addr, rwxug_flags);
+        addr += PAGE_SIZE;
+    }
+}
+
+// Unmaps and frees all pages with the U bit set in the PTE flags.
+void memory_unmap_and_free_user(void) {
+    trace("%s()", __func__);
+
+    struct pte * root = active_space_root();
+
+    // Unmap and free all user pages
+    unmap_user_pages(root);
+}
+
+// Checks if a virtual address range is mapped with specified flags.
+// Returns 1 if every virtual page in the range is mapped with at least the specified flags.
+int memory_validate_vptr_len(const void * vp, size_t len, uint_fast8_t rwxug_flags) {
+    trace("%s(%p, %zu, 0x%x)", __func__, vp, len, rwxug_flags);
+
+    uintptr_t addr = (uintptr_t)vp;
+    uintptr_t end = addr + len;
+
+    // Check each page in the range
+    while (addr < end) {
+        struct pte *pte = walk(active_space_root(), addr, 0);
+        if (!pte || !(pte->flags & PTE_V) || ((pte->flags & rwxug_flags) != rwxug_flags)) {
+            // Validation failed
+            return 0;
+        }
+        addr += PAGE_SIZE;
+    }
+    // All pages validated successfully
+    return 1;
+}
+
+// Checks if the virtual pointer points to a mapped range containing a null-terminated string.
+// Returns 1 if the string is valid and accessible with the specified flags.
+int memory_validate_vstr(const char * vs, uint_fast8_t ug_flags) {
+    trace("%s(%p, 0x%x)", __func__, vs, ug_flags);
+
+    uintptr_t addr = (uintptr_t)vs;
+
+    // Iterate over the string
+    while (1) {
+        struct pte *pte = walk(active_space_root(), addr, 0);
+        if (!pte || !(pte->flags & PTE_V) || ((pte->flags & ug_flags) != ug_flags)) {
+            // Validation failed
+            return 0;
+        }
+        char c = *(char *)addr;
+        if (c == '\0') {
+            // Null terminator found; valid string
+            return 1;
+        }
+        addr++;
+    }
+}
+
+// Called from excp.c to handle a page fault at the specified address.
+// Either maps a page containing the faulting address, or calls process_exit().
+void memory_handle_page_fault(const void * vptr) {
+    trace("%s(%p)", __func__, vptr);
+
+    uintptr_t addr = (uintptr_t)vptr & ~(PAGE_SIZE - 1); // Align to page boundary
+
+    // Check if the address is within user space
+    if (addr >= USER_BASE && addr < USER_TOP) {
+        // Map a new page with user read/write permissions
+        memory_alloc_and_map_page(addr, PTE_U | PTE_R | PTE_W);
+    } else {
+        // Invalid access; terminate the process
+        process_exit();
+    }
+}
+
+// Switches the active memory space to the main memory space and reclaims the
+// memory space that was active on entry. All physical pages mapped by a user
+// mapping are reclaimed.
+void memory_space_reclaim(void) {
+    trace("%s()", __func__);
+
+    // Switch to the main memory space (kernel page table)
+    uintptr_t old_mtag = memory_space_switch(main_mtag);
+    sfence_vma(); // Flush the TLB
+
+    // Reclaim the previous memory space
+    free_user_page_tables(old_mtag);
+}
+
 // INTERNAL FUNCTION DEFINITIONS
 //
+
+// Sets the flags of the PTE associated with vp. Only works with 4kB pages.
+void memory_set_page_flags(const void *vp, uint8_t rwxug_flags) {
+    trace("%s(%p, 0x%x)", __func__, vp, rwxug_flags);
+
+    // Retrieve the PTE for the given virtual address
+    struct pte *pte = walk(active_space_root(), (uintptr_t)vp, 0);
+    if (pte && (pte->flags & PTE_V)) {
+        // Update the PTE flags, preserving V, A, and D flags
+        pte->flags = (pte->flags & (PTE_V | PTE_A | PTE_D)) | (rwxug_flags & (PTE_R | PTE_W | PTE_X | PTE_U | PTE_G));
+        // Flush the TLB to ensure changes take effect
+        sfence_vma();
+    } else {
+        // Invalid PTE; panic
+        panic("Invalid page table entry");
+    }
+}
 
 static inline int wellformed_vma(uintptr_t vma) {
     // Address bits 63:38 must be all 0 or all 1
