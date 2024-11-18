@@ -253,11 +253,11 @@ void * memory_alloc_page(void) {
     trace("%s()", __func__);
 
     // Allocate a page from the free list
-    void *pp = palloc();
-    if (!pp) {
-        // No free pages available; panic
+    if(free_list == NULL){
         panic("Out of physical memory");
     }
+    void *pp = free_list->padding;
+    free_list = free_list->next;
     // Zero out the allocated page before use
     memset(pp, 0, PAGE_SIZE);
     return pp;
@@ -269,7 +269,9 @@ void memory_free_page(void * pp) {
     trace("%s(%p)", __func__, pp);
 
     // Return the page to the free list
-    pfree(pp);
+    union linked_page * newPage = (union linked_page *)pp;
+    newPage->next = free_list;
+    free_list = newPage;
 }
 
 // Allocates and maps a physical page.
@@ -281,6 +283,8 @@ void * memory_alloc_and_map_page(uintptr_t vma, uint_fast8_t rwxug_flags) {
 
     // Allocate a physical page
     void *pp = memory_alloc_page();
+
+    struct pte page_table_entry = leaf_pte(vma, rwxug_flags);
 
     // Map the page into the current page table
     int result = memory_map_page(active_space_root(), vma, pp, rwxug_flags);
