@@ -236,6 +236,10 @@ void memory_init(void) {
     // Put free pages on the free page list
     // TODO: FIXME implement this (must work with your implementation of
     // memory_alloc_page and memory_free_page).
+
+    for (pp = heap_end + PAGE_SIZE; pp < RAM_END; pp += PAGE_SIZE){
+        memory_free_page(pp);
+    }
     
     // Allow supervisor to access user memory. We could be more precise by only
     // enabling it when we are accessing user memory, and disable it at other
