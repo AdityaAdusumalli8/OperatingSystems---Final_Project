@@ -37,7 +37,7 @@ extern int process_exec(struct io_intf * exeio);
 
 extern void __attribute__ ((noreturn)) process_exit(void);
 
-extern void process_terminate(int pid);
+// extern void process_terminate(int pid);
 
 static inline struct process * current_process(void);
 static inline int current_pid(void);

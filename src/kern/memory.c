@@ -75,9 +75,9 @@ struct pte {
 // Internal constants defintions
 //
 
-#define PGSIZE 3096 // Page size (4 kB)
-#define USER_BASE 0x00000000 // Start of user space?
-#define USER_TOP 0x80000000 // End of user space?
+#define PGSIZE 4096 // Page size (4 kB)
+#define USER_BASE 0xC0000000 // Start of user space?
+#define USER_TOP 0xD0000000 // End of user space?
 
 // INTERNAL FUNCTION DECLARATIONS
 //
@@ -109,7 +109,9 @@ static inline struct pte ptab_pte (
 static inline struct pte null_pte(void);
 
 static inline void sfence_vma(void);
+static inline int verify_flags(uint64_t flags);
 static inline struct pte * walk_pt(struct pte* root, uintptr_t vma, int create);
+void memory_set_page_flags(const void *vp, uint8_t rwxug_flags);
 
 // INTERNAL GLOBAL VARIABLES
 //
@@ -287,25 +289,11 @@ void * memory_alloc_and_map_page(uintptr_t vma, uint_fast8_t rwxug_flags) {
     trace("%s(0x%lx, 0x%x)", __func__, vma, rwxug_flags);
 
     // Allocate a physical page
+    struct pte * entry = walk_pt(active_space_root(), vma, 1);
     void *pp = memory_alloc_page();
     struct pte page_table_entry = leaf_pte(pp, rwxug_flags);
-
-
-    uintptr_t pt1_ppn = main_pt2[VPN2(vma)].ppn;
-    uint64_t pt1_flags = main_pt2[VPN2(vma)].flags;
-    // Check if root PTE refers to gigapage - if so, map it
-    if(pt1_flags & (PTE_R | PTE_W | PTE_X) != 0){
-
-    }
-
-
-
-    // Map the page into the current page table
-    int result = memory_map_page(active_space_root(), vma, pp, rwxug_flags);
-    if (result != 0) {
-        // Mapping failed; panic
-        panic("Failed to map page");
-    }
+    *entry = page_table_entry;
+    sfence_vma();
 
     return (void *)vma;
 }
@@ -347,7 +335,7 @@ void memory_unmap_and_free_user(void) {
     struct pte * root = active_space_root();
 
     // Unmap and free all user pages
-    unmap_user_pages(root);
+    // unmap_user_pages(root);
 }
 
 // Checks if a virtual address range is mapped with specified flags.
@@ -361,7 +349,7 @@ int memory_validate_vptr_len(const void * vp, size_t len, uint_fast8_t rwxug_fla
     // Check each page in the range
     while (addr < end) {
         struct pte *pte = walk_pt(active_space_root(), addr, 0);
-        if (!pte || !(pte->flags & PTE_V) || ((pte->flags & rwxug_flags) != rwxug_flags)) {
+        if (!pte || verify_flags(pte->flags) != 0 || ((pte->flags & rwxug_flags) != rwxug_flags)) {
             // Validation failed
             return 0;
         }
@@ -381,7 +369,7 @@ int memory_validate_vstr(const char * vs, uint_fast8_t ug_flags) {
     // Iterate over the string
     while (1) {
         struct pte *pte = walk_pt(active_space_root(), addr, 0);
-        if (!pte || !(pte->flags & PTE_V) || ((pte->flags & ug_flags) != ug_flags)) {
+        if (!pte || verify_flags(pte->flags) != 0 || ((pte->flags & ug_flags) != ug_flags)) {
             // Validation failed
             return 0;
         }
@@ -407,7 +395,7 @@ void memory_handle_page_fault(const void * vptr) {
         memory_alloc_and_map_page(addr, PTE_U | PTE_R | PTE_W);
     } else {
         // Invalid access; terminate the process
-        process_exit();
+        panic("page fault!");
     }
 }
 
@@ -418,11 +406,13 @@ void memory_space_reclaim(void) {
     trace("%s()", __func__);
 
     // Switch to the main memory space (kernel page table)
+    memory_unmap_and_free_user();
     uintptr_t old_mtag = memory_space_switch(main_mtag);
     sfence_vma(); // Flush the TLB
 
-    // Reclaim the previous memory space
-    free_user_page_tables(old_mtag);
+    // Free the root page table of the old memory space
+    struct pte* old_root = mtag_to_root(old_mtag);
+    memory_free_page(old_root);
 }
 
 // INTERNAL FUNCTION DEFINITIONS
@@ -434,13 +424,14 @@ void memory_set_page_flags(const void *vp, uint8_t rwxug_flags) {
 
     // Retrieve the PTE for the given virtual address
     struct pte *pte = walk_pt(active_space_root(), (uintptr_t)vp, 0);
-    if (pte && (pte->flags & PTE_V)) {
+    if (pte && verify_flags(pte->flags) == 0) {
         // Update the PTE flags, preserving V, A, and D flags
         pte->flags = (pte->flags & (PTE_V | PTE_A | PTE_D)) | (rwxug_flags & (PTE_R | PTE_W | PTE_X | PTE_U | PTE_G));
         // Flush the TLB to ensure changes take effect
         sfence_vma();
     } else {
         // Invalid PTE; panic
+        memory_handle_page_fault(vp);
         panic("Invalid page table entry");
     }
 }
@@ -538,16 +529,30 @@ static inline void sfence_vma(void) {
     asm inline ("sfence.vma" ::: "memory");
 }
 
+// Ensures that the verify flag is set, and that the page
+// is not write-enabled while not being read-enabled.
+// Returns 0 on success, -1 on invalid.
+static inline int verify_flags(uint64_t flags){
+    if((flags & PTE_V) == 0){
+        return -1;
+    }
+    if((flags & PTE_R) == 0 && (flags & PTE_W) != 0){
+        return -1;
+    }
+
+    return 0;
+}
+
 struct pte* walk_pt(struct pte* root, uintptr_t vma, int create){
     struct pte* pt2 = root;
 
     uintptr_t pt1_ppn = pt2[VPN2(vma)].ppn;
     uint64_t pt1_flags = pt2[VPN2(vma)].flags;
     // Check if root PTE refers to gigapage - if so, create a new page table for it
-    if(pt1_flags & PTE_V == 0){
+    if(verify_flags(pt1_flags) != 0){
         memory_handle_page_fault(vma);
     }
-    else if(pt1_flags & (PTE_R | PTE_W | PTE_X) != 0){
+    else if((pt1_flags & (PTE_R | PTE_W | PTE_X)) != 0){
         if(!create){
             return NULL;
         }
@@ -562,10 +567,10 @@ struct pte* walk_pt(struct pte* root, uintptr_t vma, int create){
     uintptr_t pt0_ppn = pt1[VPN1(vma)].ppn;
     uint64_t pt0_flags = pt1[VPN1(vma)].flags;
     // Check if root PTE refers to gigapage - if so, create a new page table for it
-    if(pt0_flags & PTE_V == 0){
+    if(verify_flags(pt0_flags) != 0){
         memory_handle_page_fault(vma);
     }
-    else if(pt0_flags & (PTE_R | PTE_W | PTE_X) != 0){
+    else if((pt0_flags & (PTE_R | PTE_W | PTE_X)) != 0){
         if(!create){
             return NULL;
         }
@@ -580,5 +585,5 @@ struct pte* walk_pt(struct pte* root, uintptr_t vma, int create){
     uintptr_t ppn = pt0[VPN0(vma)].ppn;
     uintptr_t pma = pagenum_to_pageptr(ppn) + (vma & 0xFFF);
 
-    return pma;
+    return (struct pte *)pma;
 }

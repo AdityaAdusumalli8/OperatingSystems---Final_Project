@@ -5,9 +5,10 @@
 #include "io.h"
 #include "console.h"
 #include "string.h"
+#include "config.h"
+#include "memory.h"
 
-#define LOAD_LOCATION 0x80100000
-#define LOAD_END      0x81000000
+#define PAGE_SIZE 4096
 
 #define EI_NIDENT 16
 
@@ -59,7 +60,7 @@ typedef struct elf64_phdr {
 //inputs: io - pointer to the io interface to read the .elf from
 //        entryptr - double pointer to write the entry point of the program to
 //returns: status of elf_load - 0 represents success
-int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)){
+int elf_load(struct io_intf *io, void (**entryptr)(void)){
   console_printf("into elf_load\n");
     struct elf64_hdr hdr;
     long bytes_read = ioread(io, &hdr, sizeof(Elf64_Ehdr));
@@ -103,7 +104,7 @@ int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)){
     
     // At this point, the file is valid, and should be loaded
     // Set entryptr to point to entry point
-    *entryptr = (void *)(struct io_intf *)hdr.e_entry;
+    *entryptr = (void *)hdr.e_entry;
     console_printf("3, entry pointer to %x\n", hdr.e_entry);
 
     // Loop program headers
@@ -124,7 +125,7 @@ int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)){
       }
 
       // Bounds checking
-      if(phdr.p_vaddr < LOAD_LOCATION || phdr.p_vaddr + phdr.p_memsz >= LOAD_END){
+      if(phdr.p_vaddr < USER_START_VMA || phdr.p_vaddr + phdr.p_memsz >= USER_END_VMA){
         // Out of bounds error!
         return -8;
       }
@@ -137,6 +138,9 @@ int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io)){
       memset(cpy_buf, 0, phdr.p_memsz);
 
       long bytes_to_vaddr = ioread(io, cpy_buf, phdr.p_filesz);
+
+      memory_alloc_and_map_range(phdr.p_vaddr, phdr.p_memsz, (PTE_R | PTE_X | PTE_U));
+
       memcpy((void *)phdr.p_vaddr, cpy_buf, phdr.p_memsz);
       console_printf("5, wrote %d bytes to %x\n", bytes_to_vaddr, phdr.p_vaddr);
     }

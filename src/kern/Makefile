@@ -27,7 +27,9 @@ CORE_OBJS = \
 	vioblk.o \
 	console.o \
 	excp.o \
-	memory.o
+	memory.o \
+	process.o \
+	kfs.o
 	# Add more object files here
 
 CFLAGS = -Wall -fno-omit-frame-pointer -ggdb -gdwarf-2
@@ -42,6 +44,7 @@ QEMUOPTS += -serial mon:stdio
 QEMUOPTS += -drive file=kfs.raw,id=blk0,if=none,format=raw
 QEMUOPTS += -device virtio-blk-device,drive=blk0
 QEMUOPTS += -serial pty
+QEMUOPTS += -monitor pty
 
 # try to generate a unique GDB port
 GDBPORT = $(shell expr `id -u` % 5000 + 25000)
