@@ -109,6 +109,7 @@ static inline struct pte ptab_pte (
 static inline struct pte null_pte(void);
 
 static inline void sfence_vma(void);
+static inline struct pte * walk_pt(struct pte* root, uintptr_t vma, int create);
 
 // INTERNAL GLOBAL VARIABLES
 //
@@ -287,8 +288,17 @@ void * memory_alloc_and_map_page(uintptr_t vma, uint_fast8_t rwxug_flags) {
 
     // Allocate a physical page
     void *pp = memory_alloc_page();
+    struct pte page_table_entry = leaf_pte(pp, rwxug_flags);
 
-    struct pte page_table_entry = leaf_pte(vma, rwxug_flags);
+
+    uintptr_t pt1_ppn = main_pt2[VPN2(vma)].ppn;
+    uint64_t pt1_flags = main_pt2[VPN2(vma)].flags;
+    // Check if root PTE refers to gigapage - if so, map it
+    if(pt1_flags & (PTE_R | PTE_W | PTE_X) != 0){
+
+    }
+
+
 
     // Map the page into the current page table
     int result = memory_map_page(active_space_root(), vma, pp, rwxug_flags);
@@ -350,7 +360,7 @@ int memory_validate_vptr_len(const void * vp, size_t len, uint_fast8_t rwxug_fla
 
     // Check each page in the range
     while (addr < end) {
-        struct pte *pte = walk(active_space_root(), addr, 0);
+        struct pte *pte = walk_pt(active_space_root(), addr, 0);
         if (!pte || !(pte->flags & PTE_V) || ((pte->flags & rwxug_flags) != rwxug_flags)) {
             // Validation failed
             return 0;
@@ -370,7 +380,7 @@ int memory_validate_vstr(const char * vs, uint_fast8_t ug_flags) {
 
     // Iterate over the string
     while (1) {
-        struct pte *pte = walk(active_space_root(), addr, 0);
+        struct pte *pte = walk_pt(active_space_root(), addr, 0);
         if (!pte || !(pte->flags & PTE_V) || ((pte->flags & ug_flags) != ug_flags)) {
             // Validation failed
             return 0;
@@ -423,7 +433,7 @@ void memory_set_page_flags(const void *vp, uint8_t rwxug_flags) {
     trace("%s(%p, 0x%x)", __func__, vp, rwxug_flags);
 
     // Retrieve the PTE for the given virtual address
-    struct pte *pte = walk(active_space_root(), (uintptr_t)vp, 0);
+    struct pte *pte = walk_pt(active_space_root(), (uintptr_t)vp, 0);
     if (pte && (pte->flags & PTE_V)) {
         // Update the PTE flags, preserving V, A, and D flags
         pte->flags = (pte->flags & (PTE_V | PTE_A | PTE_D)) | (rwxug_flags & (PTE_R | PTE_W | PTE_X | PTE_U | PTE_G));
@@ -526,4 +536,49 @@ static inline struct pte null_pte(void) {
 
 static inline void sfence_vma(void) {
     asm inline ("sfence.vma" ::: "memory");
+}
+
+struct pte* walk_pt(struct pte* root, uintptr_t vma, int create){
+    struct pte* pt2 = root;
+
+    uintptr_t pt1_ppn = pt2[VPN2(vma)].ppn;
+    uint64_t pt1_flags = pt2[VPN2(vma)].flags;
+    // Check if root PTE refers to gigapage - if so, create a new page table for it
+    if(pt1_flags & PTE_V == 0){
+        memory_handle_page_fault(vma);
+    }
+    else if(pt1_flags & (PTE_R | PTE_W | PTE_X) != 0){
+        if(!create){
+            return NULL;
+        }
+        pt2[VPN2(vma)].flags &= ~(PTE_R | PTE_W | PTE_X);
+        void * pt1_pma = memory_alloc_page();
+        pt1_ppn = pageptr_to_pagenum(pt1_pma);
+        pt2[VPN2(vma)].ppn = pt1_ppn;
+    }
+
+    struct pte* pt1 = pagenum_to_pageptr(pt1_ppn);
+
+    uintptr_t pt0_ppn = pt1[VPN1(vma)].ppn;
+    uint64_t pt0_flags = pt1[VPN1(vma)].flags;
+    // Check if root PTE refers to gigapage - if so, create a new page table for it
+    if(pt0_flags & PTE_V == 0){
+        memory_handle_page_fault(vma);
+    }
+    else if(pt0_flags & (PTE_R | PTE_W | PTE_X) != 0){
+        if(!create){
+            return NULL;
+        }
+        pt1[VPN1(vma)].flags &= ~(PTE_R | PTE_W | PTE_X);
+        void * pt0_pma = memory_alloc_page();
+        pt0_ppn = pageptr_to_pagenum(pt0_pma);
+        pt1[VPN1(vma)].ppn = pt0_ppn;
+    }
+
+    struct pte* pt0 = pagenum_to_pageptr(pt0_ppn);
+
+    uintptr_t ppn = pt0[VPN0(vma)].ppn;
+    uintptr_t pma = pagenum_to_pageptr(ppn) + (vma & 0xFFF);
+
+    return pma;
 }
