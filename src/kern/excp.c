@@ -54,14 +54,13 @@ void smode_excp_handler(unsigned int code, struct trap_frame * tfr) {
 }
 
 void umode_excp_handler(unsigned int code, struct trap_frame * tfr) {
-    kprintf("made it to the exception handler with code %d, tfr %x\n", code, tfr);
-    const uint64_t * const a = tfr->x + TFR_A0;
-    kprintf("syscall code %d", a[TFR_A7]);
     switch (code) {
     // TODO: FIXME dispatch to various U mode exception handlers
-    case RISCV_SCAUSE_LOAD_PAGE_FAULT:
-        default_excp_handler(code, tfr);
-        // memory_handle_page_fault();
+    case RISCV_SCAUSE_STORE_PAGE_FAULT:
+        memory_handle_page_fault(csrr_stval());
+        break;
+    case RISCV_SCAUSE_ECALL_FROM_UMODE:
+        syscall_handler(tfr);
         break;
     default:
         default_excp_handler(code, tfr);

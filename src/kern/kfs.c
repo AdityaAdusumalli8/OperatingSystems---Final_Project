@@ -93,8 +93,6 @@ int fs_mount(struct io_intf *io){
     if(stat_block.num_dentries > MAX_FILES){
         return -EINVAL;
     }
-
-    kprintf("Mounting file system with %d dentries, %d inodes, and %d blocks.\n", stat_block.num_dentries, stat_block.num_inodes, stat_block.num_blocks);
     memcpy(d_entries, statsBuffer + sizeof(stat_block_t), stat_block.num_dentries * sizeof(f_dentry));
     // Return Success
     return 0;
@@ -118,7 +116,6 @@ int fs_open(const char *name, struct io_intf **io){
     {
         return -EINVAL; 
     }
-    // console_printf("%x IS MOUNTED IO\n", *mountedIO);
 
     // Find an available file descriptor to represent the opened file
     int availablefdIndex = -1;
@@ -146,19 +143,16 @@ int fs_open(const char *name, struct io_intf **io){
     // Find the correct dentry for the file.
     // Loop through the dentries until we find the correct file
     int found = 0;
-    // console_printf("%d dentries\n", stat_block.num_dentries);
     for(uint64_t i = 0; i < MAX_FILES; i++){
         // loop through the dentries
         // find the dentry with the matching name
         f_dentry dir_entry = d_entries[i];
-        // console_printf("%d: %s\n", i, dir_entry.f_name);
         if(strcmp(dir_entry.f_name, name) == 0){
             newFileDescriptor->inode_num = dir_entry.inode_idx;
             found = 1;
             break;
         }
     }
-    // console_printf("found=%d\n", found);
     if(found == 0){
         // No corresponding name
         return -EINVAL;
@@ -181,7 +175,6 @@ int fs_open(const char *name, struct io_intf **io){
 //     uint32_t flags;
 // } file_t;
 
-    console_printf("Loaded file %s with size %d, and inode num %d.\n", name, newFileDescriptor->file_size, newFileDescriptor->inode_num);
     ioseek(&(newFileDescriptor->io), 0);
     // Return success
     return 0;
@@ -266,11 +259,9 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
         uint32_t fs_block_num = 0;
         ioread(mountedIO, &fs_block_num, sizeof(uint32_t)); 
 
-        console_printf("Block number is %d (%d in file) with offset %d.\n", fs_block_num, block_num, block_offset);
         ioseek(mountedIO, (stat_block.num_inodes + 1 + fs_block_num) * BLOCK_SIZE + block_offset);
 
         long readBytesN = iowrite(mountedIO, buf + buf_offset, bytesToWrite);
-        console_printf("Wrote %d bytes!\n", readBytesN);
         if (readBytesN > 0)
         {
             writeFileDescriptor->file_pos += readBytesN;
@@ -279,7 +270,6 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
             buf_offset += readBytesN;
         }
         else{
-            console_printf("Read 0 or fewer bytes.");
             return -EINVAL;
         }
     }
@@ -314,13 +304,8 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
         return -1;
     }
 
-    console_printf("Doing a read!\n");
-
     // Find the file descriptor
     file_t *readFileDescriptor = (void *)io - offsetof(file_t, io);
-    if(readFileDescriptor != 0){
-        console_printf("Found file with size %d at inode %d.\n", readFileDescriptor->file_size, readFileDescriptor->inode_num);
-    }
 
     // Check if the size read fits within max file size
     long size_limit_read = readFileDescriptor->file_size - readFileDescriptor->file_pos;
@@ -350,11 +335,9 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
         uint32_t fs_block_num = 0;
         ioread(mountedIO, &fs_block_num, sizeof(uint32_t)); 
 
-        console_printf("Block number is %d (%d in file) with offset %d.\n", fs_block_num, block_num, block_offset);
         ioseek(mountedIO, (stat_block.num_inodes + 1 + fs_block_num) * BLOCK_SIZE + block_offset);
 
         long readBytesN = ioread(mountedIO, buf, bytesToRead);
-        console_printf("Read %d bytes!\n", readBytesN);
         if (readBytesN > 0)
         {
             readFileDescriptor->file_pos += readBytesN;

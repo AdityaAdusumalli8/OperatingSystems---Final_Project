@@ -5,6 +5,7 @@
 #include "elf.h"
 #include "thread.h"
 #include "console.h"
+#include "io.h"
 
 #ifdef PROCESS_TRACE
 #define TRACE
@@ -64,7 +65,6 @@ int process_exec(struct io_intf *exeio){
     memory_unmap_and_free_user();
     void (*entryptr)(void);
     int status = elf_load(exeio, &entryptr);
-    kprintf("WE MADE IT OUT OF ELF LOAD!!!!!!!\n");
     if(status < 0){
         panic("ELF_LOAD FAILED!!!!!!!");
     }
@@ -73,4 +73,13 @@ int process_exec(struct io_intf *exeio){
 }
 
 void process_exit(void){
+    memory_unmap_and_free_user();
+    struct process * process = current_process();
+    for(int i = 0; i < PROCESS_IOMAX; i++){
+        if(process->iotab[i] != NULL){
+            ioclose(process->iotab[i]);
+        }
+    }
+    thread_exit();
+
 }

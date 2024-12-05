@@ -30,7 +30,8 @@ CORE_OBJS = \
 	memory.o \
 	process.o \
 	kfs.o \
-	elf.o
+	elf.o \
+	syscall.o
 	# Add more object files here
 
 CFLAGS = -Wall -fno-omit-frame-pointer -ggdb -gdwarf-2

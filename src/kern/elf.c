@@ -59,11 +59,9 @@ typedef struct elf64_phdr {
 //        entryptr - double pointer to write the entry point of the program to
 //returns: status of elf_load - 0 represents success
 int elf_load(struct io_intf *io, void (**entryptr)(void)){
-  console_printf("into elf_load\n");
     struct elf64_hdr hdr;
     long bytes_read = ioread(io, &hdr, sizeof(Elf64_Ehdr));
     //Ensure we read the whole header
-    console_printf("read %d bytes\n", bytes_read);
     if(bytes_read < sizeof(Elf64_Ehdr)){
       return -1000 + bytes_read - sizeof(Elf64_Ehdr);
     }
@@ -86,8 +84,6 @@ int elf_load(struct io_intf *io, void (**entryptr)(void)){
       //Not for UNIX!
       return -4;
     }
-
-    console_printf("2\n");
     
     // Check e_type in header, ensure is ET_EXEC (executable)
     // Verify e_machine = EM_RISCV
@@ -103,7 +99,6 @@ int elf_load(struct io_intf *io, void (**entryptr)(void)){
     // At this point, the file is valid, and should be loaded
     // Set entryptr to point to entry point
     *entryptr = (void *)hdr.e_entry;
-    console_printf("3, entry pointer to %x\n", hdr.e_entry);
 
     // Loop program headers
     struct elf64_phdr phdr;
@@ -118,7 +113,6 @@ int elf_load(struct io_intf *io, void (**entryptr)(void)){
       }
       // Ensure that the data is loadable into memory
       if(phdr.p_type != PT_LOAD){
-        console_printf("skipping a not load!\n");
         continue;
       }
 
@@ -130,14 +124,10 @@ int elf_load(struct io_intf *io, void (**entryptr)(void)){
 
       // Move io object to point to the data to copy
       ioseek(io, phdr.p_offset);
-      console_printf("4\n");
       // Read data from io object into memory at mem pointer
-
       memory_alloc_and_map_range(phdr.p_vaddr, phdr.p_memsz, (PTE_R | PTE_W | PTE_X | PTE_U));
       long bytes_to_vaddr = ioread(io, (void *)phdr.p_vaddr, phdr.p_filesz);
       memset((void *)phdr.p_vaddr + phdr.p_filesz, 0, phdr.p_memsz - phdr.p_filesz);
-
-      console_printf("5, wrote %d bytes to %x\n", bytes_to_vaddr, phdr.p_vaddr);
     }
 
     return 0;

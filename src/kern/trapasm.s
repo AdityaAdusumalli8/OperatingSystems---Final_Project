@@ -155,7 +155,7 @@ _trap_entry_from_umode:
         csrrw sp, sscratch, sp
         addi    sp, sp, -34*8   # allocate space for trap frame
         sd      t6, 31*8(sp)    # save t6 (x31) in trap frame
-        addi    t6, sp, 34*8    # save original sp
+        csrr    t6, sscratch    # save original sp
         sd      t6, 2*8(sp)     # 
 
         save_gprs_except_t6_and_sp
@@ -184,7 +184,6 @@ _trap_entry_from_umode:
         restore_gprs_except_t6_and_sp
         
         ld      t6, 31*8(sp)
-        ld      sp, 2*8(sp)
         csrrw sp, sscratch, sp
 
         sret

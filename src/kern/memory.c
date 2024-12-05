@@ -344,6 +344,7 @@ void memory_unmap_and_free_user(void) {
         int user = unmap_user_page(vma);
         //TODO: unmap intermediate page tables
     }
+    sfence_vma();
 }
 
 // Checks if a virtual address range is mapped with specified flags.
@@ -368,7 +369,7 @@ int memory_validate_vptr_len(const void * vp, size_t len, uint_fast8_t rwxug_fla
 }
 
 // Checks if the virtual pointer points to a mapped range containing a null-terminated string.
-// Returns 1 if the string is valid and accessible with the specified flags.
+// Returns 0 if the string is valid and accessible with the specified flags.
 int memory_validate_vstr(const char * vs, uint_fast8_t ug_flags) {
     trace("%s(%p, 0x%x)", __func__, vs, ug_flags);
 
@@ -381,8 +382,8 @@ int memory_validate_vstr(const char * vs, uint_fast8_t ug_flags) {
             // Validation failed
             return 0;
         }
-        char c = *(char *)addr;
-        if (c == '\0') {
+        char c = *(char *)((uintptr_t)pagenum_to_pageptr(pte->ppn) | (0xFFF & addr));
+        if (c == 0) {
             // Null terminator found; valid string
             return 1;
         }
@@ -400,12 +401,11 @@ void memory_handle_page_fault(const void * vptr) {
     // Check if the address is within user space
     if (addr >= USER_BASE && addr < USER_TOP) {
         // Map a new page with user read/write permissions
-        kprintf("alloc and map page\n");
         memory_alloc_and_map_page(addr, (PTE_U | PTE_R | PTE_W));
+        sfence_vma();
         
     } else {
         // Invalid access; terminate the process
-        kprintf("we hit this page fault...\n");
         panic("page fault!");
     }
 }
@@ -435,7 +435,6 @@ void memory_set_page_flags(const void *vp, uint8_t rwxug_flags) {
 
     // Retrieve the PTE for the given virtual address
     struct pte *pte = walk_pt(active_space_root(), (uintptr_t)vp, 0);
-    kprintf("here: %x\n", (*pte).flags);
     if (pte && (verify_flags(pte->flags) == 0)) {
         // Update the PTE flags, preserving V, A, and D flags
         pte->flags = (pte->flags & (PTE_V | PTE_A | PTE_D)) | (rwxug_flags & (PTE_R | PTE_W | PTE_X | PTE_U | PTE_G));
