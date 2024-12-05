@@ -65,6 +65,7 @@ void main(void) {
     if (result != 0)
         panic("device_open failed");
     
+    fs_init();
     result = fs_mount(blkio);
 
     debug("Mounted blk0");
@@ -74,8 +75,9 @@ void main(void) {
 
     result = fs_open(INIT_PROC, &initio);
 
-    if (result < 0)
+    if (result < 0){
         panic(INIT_PROC ": process image not found");
+    }
     
     result = process_exec(initio);
     panic(INIT_PROC ": process_exec failed");

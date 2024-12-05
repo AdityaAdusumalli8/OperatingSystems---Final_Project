@@ -120,6 +120,14 @@ _thread_finish_jump:
 
         # TODO: FIXME your code here
 
+        csrw sscratch, a0
+        mv sp, a1
+        la t0, _trap_entry_from_umode
+        csrw stvec, t0
+        csrw sepc, a2
+
+        sret
+
 
 # Statically allocated stack for the idle thread.
 

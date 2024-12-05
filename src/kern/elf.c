@@ -8,8 +8,6 @@
 #include "config.h"
 #include "memory.h"
 
-#define PAGE_SIZE 4096
-
 #define EI_NIDENT 16
 
 #define PT_LOAD    1  /* program header type */
@@ -134,14 +132,11 @@ int elf_load(struct io_intf *io, void (**entryptr)(void)){
       ioseek(io, phdr.p_offset);
       console_printf("4\n");
       // Read data from io object into memory at mem pointer
-      char cpy_buf[phdr.p_memsz];
-      memset(cpy_buf, 0, phdr.p_memsz);
 
-      long bytes_to_vaddr = ioread(io, cpy_buf, phdr.p_filesz);
+      memory_alloc_and_map_range(phdr.p_vaddr, phdr.p_memsz, (PTE_R | PTE_W | PTE_X | PTE_U));
+      long bytes_to_vaddr = ioread(io, (void *)phdr.p_vaddr, phdr.p_filesz);
+      memset((void *)phdr.p_vaddr + phdr.p_filesz, 0, phdr.p_memsz - phdr.p_filesz);
 
-      memory_alloc_and_map_range(phdr.p_vaddr, phdr.p_memsz, (PTE_R | PTE_X | PTE_U));
-
-      memcpy((void *)phdr.p_vaddr, cpy_buf, phdr.p_memsz);
       console_printf("5, wrote %d bytes to %x\n", bytes_to_vaddr, phdr.p_vaddr);
     }
 

@@ -73,6 +73,7 @@ Purpose: The purpose of this function is to mount the filesystem by providing th
 necessary block device. This allows for further filesystem operations like read and write.
 
 */
+uint8_t statsBuffer[BLOCK_SIZE];
 int fs_mount(struct io_intf *io){
     // Check if filesystem and io are initialized properly.
     if (!fs_initialized || io == NULL){
@@ -82,7 +83,6 @@ int fs_mount(struct io_intf *io){
     mountedIO = io;
     ioseek(mountedIO, 0);
 
-    uint8_t statsBuffer[BLOCK_SIZE];
     long bytes_read = ioread(mountedIO, statsBuffer, BLOCK_SIZE);
     if(bytes_read != BLOCK_SIZE){
         return -EINVAL;
@@ -94,7 +94,7 @@ int fs_mount(struct io_intf *io){
         return -EINVAL;
     }
 
-    console_printf("Mounting file system with %d dentries, %d inodes, and %d blocks.\n", stat_block.num_dentries, stat_block.num_inodes, stat_block.num_blocks);
+    kprintf("Mounting file system with %d dentries, %d inodes, and %d blocks.\n", stat_block.num_dentries, stat_block.num_inodes, stat_block.num_blocks);
     memcpy(d_entries, statsBuffer + sizeof(stat_block_t), stat_block.num_dentries * sizeof(f_dentry));
     // Return Success
     return 0;

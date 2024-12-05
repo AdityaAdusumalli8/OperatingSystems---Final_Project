@@ -17,7 +17,7 @@
 //           will be filled in with the entry point of the ELF file.
 //           Return 0 on success or a negative error code on error.
 
-int elf_load(struct io_intf *io, void (**entryptr)(struct io_intf *io));
+int elf_load(struct io_intf *io, void (**entryptr)(void));
 
 //           _ELF_H_
 #endif

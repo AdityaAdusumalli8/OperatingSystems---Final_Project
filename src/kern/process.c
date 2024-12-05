@@ -2,6 +2,9 @@
 //
 #include "process.h"
 #include "memory.h"
+#include "elf.h"
+#include "thread.h"
+#include "console.h"
 
 #ifdef PROCESS_TRACE
 #define TRACE
@@ -59,7 +62,13 @@ void procmgr_init(void){
 
 int process_exec(struct io_intf *exeio){
     memory_unmap_and_free_user();
-    
+    void (*entryptr)(void);
+    int status = elf_load(exeio, &entryptr);
+    kprintf("WE MADE IT OUT OF ELF LOAD!!!!!!!\n");
+    if(status < 0){
+        panic("ELF_LOAD FAILED!!!!!!!");
+    }
+    thread_jump_to_user(USER_STACK_VMA, (uintptr_t)entryptr);
     return 0;
 }
 
