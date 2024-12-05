@@ -69,7 +69,7 @@ int process_exec(struct io_intf *exeio){
         panic("ELF_LOAD FAILED!!!!!!!");
     }
     thread_jump_to_user(USER_STACK_VMA, (uintptr_t)entryptr);
-    return 0;
+    process_exit();
 }
 
 void process_exit(void){
@@ -81,5 +81,4 @@ void process_exit(void){
         }
     }
     thread_exit();
-
 }
