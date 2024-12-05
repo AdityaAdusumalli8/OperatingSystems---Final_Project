@@ -152,13 +152,19 @@ _trap_entry_from_umode:
         # there, so we can use it as a temporary register.
 
         # TODO: FIXME your code here
-        csrrw sp, sscratch, sp
+        csrrw   sp, sscratch, sp
+
         addi    sp, sp, -34*8   # allocate space for trap frame
         sd      t6, 31*8(sp)    # save t6 (x31) in trap frame
         csrr    t6, sscratch    # save original sp
         sd      t6, 2*8(sp)     # 
 
         save_gprs_except_t6_and_sp
+
+        ld      tp, 34*8(sp)
+        addi    t6, sp, 34*8
+        csrw    sscratch, t6
+
         save_sstatus_and_sepc
 
         # We're now in S mode, so update our trap handler address to
@@ -181,9 +187,16 @@ _trap_entry_from_umode:
         csrw stvec, t6
 
         restore_sstatus_and_sepc
+
+        csrr  t6, sscratch
+        sd    tp, 0(t6)
+
         restore_gprs_except_t6_and_sp
-        
-        ld      t6, 31*8(sp)
+
+        ld    t6, 2*8(sp)
+        csrw sscratch, t6
+        ld    t6, 31*8(sp)
+        addi  sp, sp, 34*8
         csrrw sp, sscratch, sp
 
         sret
