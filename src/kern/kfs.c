@@ -146,6 +146,7 @@ int fs_open(const char *name, struct io_intf **io){
     file_t *newFileDescriptor = &fileDescriptorsArray[availablefdIndex];
     // Set the io_intf interface with function pointers for various file operations.
     newFileDescriptor->io.ops = &fs_io_ops;
+    newFileDescriptor->io.refcnt = 1;
 
     // Set position in the file to 0
     newFileDescriptor->file_pos = 0;

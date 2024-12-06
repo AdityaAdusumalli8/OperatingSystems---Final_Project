@@ -316,6 +316,7 @@ int vioblk_open(struct io_intf ** ioptr, void * aux) {
 
     dev->io_intf.ops = &vioblk_io_ops;
     *ioptr = &dev->io_intf;
+    dev->io_intf.refcnt = 1;
 
     dev->vq.avail.idx = 0;
     dev->vq.used.idx = 0;

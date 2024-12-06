@@ -192,7 +192,8 @@ static inline uint32_t ioref(struct io_intf * io) {
 }
 
 static inline void ioclose(struct io_intf * io) {
-    if (io->ops->close != NULL)
+    io->refcnt--;
+    if (io->ops->close != NULL && io->refcnt == 0)
         io->ops->close(io);
 }
 

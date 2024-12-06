@@ -196,6 +196,7 @@ struct io_intf * iolit_init (struct io_lit * lit, void * buf, size_t size) {
     lit->buf= buf;
     lit->size = size;
     lit->pos = 0;
+    lit->io_intf.refcnt = 1;
 
     return &lit->io_intf;
 }
