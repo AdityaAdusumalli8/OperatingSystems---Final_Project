@@ -37,6 +37,11 @@ static inline void lock_init(struct lock * lk, const char * name) {
 static inline void lock_acquire(struct lock * lk) {
     // TODO CP3: FIXME implement this
     // then use in vioblk and kfs drivers
+    while(lk->tid >= 0){
+        condition_wait(&lk->cond);
+    }
+
+    lk->tid = running_thread();
 }
 
 static inline void lock_release(struct lock * lk) {

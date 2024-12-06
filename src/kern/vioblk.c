@@ -9,7 +9,7 @@
 #include "device.h"
 #include "error.h"
 #include "string.h"
-
+#include "lock.h"
 #include "thread.h"
 
 // COMPILE-TIME PARAMETERS
@@ -111,6 +111,9 @@ struct vioblk_device {
     // Block buffer
     char * blkbuf;
 };
+
+// Device lock
+struct lock vioblk_lock;
 
 // INTERNAL FUNCTION DECLARATIONS
 //          
@@ -276,6 +279,9 @@ void vioblk_attach(volatile struct virtio_mmio_regs * regs, int irqno) {
         kprintf("blk: device_register failed\n");
         return;
     }
+
+    char* name = "blk";
+    lock_init(&(vioblk_lock), strncat(name, (char)reg_status + '0', 1));
  
     regs->status |= VIRTIO_STAT_DRIVER_OK;    
     // fence o,oi

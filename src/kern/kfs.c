@@ -2,6 +2,7 @@
 #include "io.h"
 #include "console.h"
 #include "error.h"
+#include "lock.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
@@ -44,6 +45,8 @@ static file_t fileDescriptorsArray[MAX_FILES];
 static stat_block_t stat_block;
 static f_dentry d_entries[MAX_FILES];
 
+struct lock fs_lock;
+
 void fs_init(void)
 {
     if (!fs_initialized)
@@ -51,6 +54,7 @@ void fs_init(void)
         fs_initialized = 1;
         memset(fileDescriptorsArray, 0, sizeof(fileDescriptorsArray)); 
         mountedIO = NULL;
+        lock_init(&fs_lock, "fs_lock");
     }
 }
 
@@ -79,11 +83,16 @@ int fs_mount(struct io_intf *io){
     if (!fs_initialized || io == NULL){
         return -EINVAL; 
     }
+
+    extern struct lock vioblk_lock;
+    lock_acquire(&vioblk_lock);
+
     // Set the mountedIO variable to the device block.
     mountedIO = io;
     ioseek(mountedIO, 0);
-
     long bytes_read = ioread(mountedIO, statsBuffer, BLOCK_SIZE);
+
+    lock_release(&vioblk_lock);
     if(bytes_read != BLOCK_SIZE){
         return -EINVAL;
     }
@@ -159,8 +168,11 @@ int fs_open(const char *name, struct io_intf **io){
     }
 
     uint32_t file_len;
+    extern struct lock vioblk_lock;
+    lock_acquire(&vioblk_lock);
     ioseek(mountedIO, 4096 * (newFileDescriptor->inode_num + 1));
     ioread(mountedIO, &file_len, 4);
+    lock_release(&vioblk_lock);
     newFileDescriptor->file_size = file_len;
 
     // Modify pointer to contain the io_intf structure of the opened file
@@ -242,6 +254,9 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
     // Calculate the offset to the inode of the file
     uint32_t inode_num = writeFileDescriptor->inode_num;
     uint32_t inode_offset = (inode_num + 1) * BLOCK_SIZE;
+
+    extern struct lock vioblk_lock;
+    lock_acquire(&vioblk_lock);
     while(n > 0){
         // Calculate how many bytes to read
         uint32_t bytesToWrite = n;
@@ -270,9 +285,11 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
             buf_offset += readBytesN;
         }
         else{
+            lock_release(&vioblk_lock);
             return -EINVAL;
         }
     }
+    lock_release(&vioblk_lock);
     return wroteBytes;
 
 }
@@ -318,6 +335,9 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
     // Calculate the offset to the inode of the file
     uint32_t inode_num = readFileDescriptor->inode_num;
     uint32_t inode_offset = (inode_num + 1) * BLOCK_SIZE;
+
+    extern struct lock vioblk_lock;
+    lock_acquire(&vioblk_lock);
     while(n > 0){
         // Calculate how many bytes to read
         uint32_t bytesToRead = n;
@@ -347,9 +367,11 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
         }
         else{
             console_printf("Read 0 or fewer bytes.");
+            lock_release(&vioblk_lock);
             return -EINVAL;
         }
     }
+    lock_release(&vioblk_lock);
     return readBytes;
 }
 
