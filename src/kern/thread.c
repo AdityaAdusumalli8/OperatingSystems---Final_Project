@@ -14,6 +14,7 @@
 #include "intr.h"
 #include "process.h"
 #include "memory.h"
+#include "trap.h"
 
 // COMPILE-TIME PARAMETERS
 //
@@ -255,6 +256,10 @@ void thread_jump_to_user(uintptr_t usp, uintptr_t upc) {
     csrs_sstatus(RISCV_SSTATUS_SIE);
     csrc_sstatus(RISCV_SSTATUS_SPIE);
     _thread_finish_jump(CURTHR->stack_base, usp, upc);
+}
+
+extern int thread_fork_to_user(struct process * child_proc, const struct trap_frame * parent_tfr){
+    // TODO CP3: fix me
 }
 
 void thread_yield(void) {

@@ -72,6 +72,11 @@ int process_exec(struct io_intf *exeio){
     process_exit();
 }
 
+int process_fork(struct process * process){
+    //TODO CP3: process fork here!
+    return 0;
+}
+
 void process_exit(void){
     memory_unmap_and_free_user();
     struct process * process = current_process();

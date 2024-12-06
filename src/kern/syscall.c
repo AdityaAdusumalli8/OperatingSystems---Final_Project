@@ -20,6 +20,9 @@ static long sysread(int fd, void *buf, size_t bufsz);
 static long syswrite(int fd, const void *buf, size_t len);
 static int sysioctl(int fd, int cmd, void *arg);
 static int sysexec(int fd);
+static int sysfork(const struct trap_frame * tfr);
+static int sysusleep(unsigned long us);
+static int syswait(int tid);
 
 static long verify_fd(int fd);
 
@@ -54,6 +57,12 @@ int64_t syscall(struct trap_frame * tfr){
             return sysioctl((int)(regs[TFR_A0]), (int)(regs[TFR_A1]), (void *)(regs[TFR_A2]));
         case SYSCALL_EXEC:
             return sysexec((int)(regs[TFR_A0]));
+        case SYSCALL_FORK:
+            return sysfork((const struct trap_frame*)(regs[TFR_A0]));
+        case SYSCALL_USLEEP:
+            return syswait((int)(regs[TFR_A0]));
+        case SYSCALL_WAIT:
+            return syswait((unsigned long)(regs[TFR_A0]));
         default:
             return 0;
             break;
@@ -203,6 +212,21 @@ static int sysexec(int fd){
     process->iotab[fd] = NULL;
 
     process_exec(exeio);
+}
+
+static int sysfork(const struct trap_frame * tfr){
+    //TODO CP3: do this
+    return 0;
+}
+
+static int sysusleep(unsigned long us){
+    //TODO CP3: sysusleep
+    return 0;
+}
+
+static int syswait(int tid){
+    // TODO CP3: yep and do syswait too
+    return 0;
 }
 
 static long verify_fd(int fd){

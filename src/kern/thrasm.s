@@ -128,6 +128,14 @@ _thread_finish_jump:
 
         sret
 
+# extern void _thread_finish_fork (
+#       struct thread * child, const struct trap_frame * parent_tfr);
+
+_thread_finish_fork:
+
+        # TODO CP3: do this function
+        sret
+
 
 # Statically allocated stack for the idle thread.
 

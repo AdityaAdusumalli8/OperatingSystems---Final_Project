@@ -35,7 +35,8 @@ static inline void lock_init(struct lock * lk, const char * name) {
 }
 
 static inline void lock_acquire(struct lock * lk) {
-    // TODO: FIXME implement this
+    // TODO CP3: FIXME implement this
+    // then use in vioblk and kfs drivers
 }
 
 static inline void lock_release(struct lock * lk) {

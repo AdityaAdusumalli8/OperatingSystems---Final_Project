@@ -426,6 +426,11 @@ void memory_space_reclaim(void) {
     memory_free_page(old_root);
 }
 
+uintptr_t memory_space_clone(uint_fast16_t asid){
+    // TODO CP3: do this function
+    return 0;
+}
+
 // INTERNAL FUNCTION DEFINITIONS
 //
 
