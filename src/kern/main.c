@@ -9,7 +9,7 @@
 #define DEBUG
 #endif
 
-#define INIT_PROC "init2" // name of init process executable
+#define INIT_PROC "fib" // name of init process executable
 
 #include "console.h"
 #include "thread.h"
@@ -41,10 +41,11 @@ void main(void) {
     devmgr_init();
     thread_init();
     procmgr_init();
+    timer_init();
 
     // Attach NS16550a serial devices
 
-    for (i = 0; i < 2; i++) {
+    for (i = 0; i < 3; i++) {
         mmio_base = (void*)UART0_IOBASE;
         mmio_base += (UART1_IOBASE-UART0_IOBASE)*i;
         uart_attach(mmio_base, UART0_IRQNO+i);
@@ -65,7 +66,6 @@ void main(void) {
     if (result != 0)
         panic("device_open failed");
     
-    fs_init();
     result = fs_mount(blkio);
 
     debug("Mounted blk0");
@@ -75,9 +75,8 @@ void main(void) {
 
     result = fs_open(INIT_PROC, &initio);
 
-    if (result < 0){
+    if (result < 0)
         panic(INIT_PROC ": process image not found");
-    }
     
     result = process_exec(initio);
     panic(INIT_PROC ": process_exec failed");

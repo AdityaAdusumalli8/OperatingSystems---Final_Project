@@ -32,7 +32,6 @@ struct io_ops {
 
 struct io_intf {
 	const struct io_ops * ops;
-    uint32_t refcnt;
 };
 
 struct io_lit {
@@ -51,6 +50,26 @@ struct io_term {
 
 // IOCTL numbers (0..7 are reserved)
 
+// The currently defined IOCTL commands are:
+
+//   IOCTL_GETLEN - Returns the length of the object. Must be defined for a
+//   block device and file. Not supported by some devices (e.g. UART).
+//
+//   IOCTL_SETLEN - Current not supported (do not need to implement).
+//
+//   IOCTL_GETPOS - Gets current read/write position in the object, as an offset
+//   from the beginning.
+//
+//   IOCTL_SETPOS - Sets the current read/write position in the object, as an
+//   offset from the beginning. Read and write operations will take place at this
+//   offset. Must be implemented by files and block devices; not supported by
+//   some devices (e.g. UART). See ioseek() functions, which is a wrapper around
+//   this ioctl operation.
+//
+//   IOCTL_FLUSH - Current not supported (do not need to implement).
+//
+//   IOCTL_GETBLKSZ - Returns the block size. Optional.
+
 #define IOCTL_GETLEN        1   // arg is pointer to uint64_t
 #define IOCTL_SETLEN        2   // arg is pointer to uint64_t
 #define IOCTL_GETPOS        3   // arg is pointer to uint64_t
@@ -63,15 +82,6 @@ struct io_term {
 
 // Convenience functions for operating on I/O objects. These functions calls the
 // object's operations.
-
-// The ioref function increments the reference count of an I/O object. Closing
-// an object decrements the reference count and calls the object's close
-// operation only if the reference count is zero. Returns the current number of
-// references.
-
-static inline uint32_t
-__attribute__ ((nonnull(1)))
-ioref(struct io_intf * io);
 
 // The ioclose function closes the I/O object. No other functions may be called
 // after calling close, and the io_intf pointer should be considered invalid.
@@ -158,7 +168,9 @@ extern long
 __attribute__ ((nonnull(1,2)))
 iovprintf(struct io_intf * io, const char * fmt, va_list ap);
 
-// An I/O literal object allows a block of memory to be treated as file.
+// An I/O literal object allows a block of memory to be treated as file. I/O
+// operations should be able to be performed via the io_intf associated with 
+// the io_lit.
 
 extern struct io_intf *
 __attribute__ ((nonnull(1,2)))
@@ -185,11 +197,6 @@ ioterm_getsn(struct io_term * iot, char * buf, size_t n);
 
 // INLINE FUNCTION DEFINITIONS
 //
-
-static inline uint32_t ioref(struct io_intf * io) {
-    io->refcnt += 1;
-    return io->refcnt;
-}
 
 static inline void ioclose(struct io_intf * io) {
     if (io->ops->close != NULL)
