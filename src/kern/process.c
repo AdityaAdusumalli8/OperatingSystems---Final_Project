@@ -105,7 +105,7 @@ int process_fork(struct trap_frame * tfr){
         }
     }
     if(new_pid >= NPROC){
-        return -1;
+        return -EINVAL;
     }
     struct process * new_process = (struct process *)kmalloc(sizeof(struct process));
     new_process->id = new_pid;

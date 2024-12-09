@@ -94,11 +94,11 @@ static int sysdevopen(int fd, const char *name, int instno){
     struct process * process = current_process();
     if(fd >= PROCESS_IOMAX){
         kprintf("fd over max process\n");
-        return -1;
+        return -EINVAL;
     }
     if(fd >= 0 && process->iotab[fd] != NULL){
         kprintf("fd already present\n");
-        return -1;
+        return -EINVAL;
     }
 
     struct io_intf * devio;
@@ -111,12 +111,12 @@ static int sysdevopen(int fd, const char *name, int instno){
 
     if(i >= PROCESS_IOMAX){
         kprintf("no open io slots\n");
-        return -1;
+        return -EINVAL;
     }
 
     int result = device_open(&devio, name, instno);
     if(result < 0){
-        return -1;
+        return -EINVAL;
     }
     process->iotab[fd < 0 ? i : fd] = devio;
     return fd < 0 ? i : fd;
@@ -126,11 +126,11 @@ static int sysfsopen(int fd, const char *name){
     struct process * process = current_process();
     if(fd >= PROCESS_IOMAX){
         kprintf("fd over max process\n");
-        return -1;
+        return -EINVAL;
     }
     if(fd >= 0 && process->iotab[fd] != NULL){
         kprintf("fd already present\n");
-        return -1;
+        return -EINVAL;
     }
 
     struct io_intf * fsio;
@@ -143,12 +143,12 @@ static int sysfsopen(int fd, const char *name){
 
     if(i >= PROCESS_IOMAX){
         kprintf("no open io slots\n");
-        return -1;
+        return -EINVAL;
     }
 
     int result = fs_open(name, &fsio);
     if(result < 0){
-        return -1;
+        return -EINVAL;
     }
     process->iotab[fd < 0 ? i : fd] = fsio;
     return fd < 0 ? i : fd;
@@ -292,22 +292,22 @@ static int syswait(int tid){
         // If tid is not main thread, wait for specific child to exit
         return thread_join(tid);
     }
-    return -1;
+    return -EINVAL;
 }
 
 static long verify_fd(int fd){
     struct process * process = current_process();
     if(fd >= PROCESS_IOMAX){
         kprintf("fd over max process\n");
-        return -1;
+        return -EINVAL;
     }
     if(fd < 0){
         kprintf("invalid file descriptor\n");
-        return -1;
+        return -EINVAL;
     }
     if(process->iotab[fd] == NULL){
         kprintf("fd not present\n");
-        return -1;
+        return -EINVAL;
     }
     return 0;
 }

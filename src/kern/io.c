@@ -155,9 +155,9 @@ static int iolit_ioctl(struct io_intf *io, int cmd, void *arg) {
             lit->pos = set_position;
             return 0;
         }
-        return -1;
+        return -EINVAL;
     } else {
-        return -1;
+        return -EINVAL;
     }
 }
 

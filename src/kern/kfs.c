@@ -139,7 +139,7 @@ int fs_open(const char *name, struct io_intf **io){
         i++;
     }
     if (availablefdIndex == -1){
-        return -1; // No file descriptors avilable
+        return -EINVAL; // No file descriptors avilable
     }
 
     // Initialize file descriptpr:
@@ -238,7 +238,7 @@ long fs_write(struct io_intf *io, const void *buf, unsigned long n)
 {
     //Check if input parameters have valid values.
     if (io == NULL || buf == NULL || n == 0){
-        return -1; 
+        return -EINVAL; 
     }
 
     // Find the file descriptor 
@@ -319,7 +319,7 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
     // Check if input parameters have valid values.
     if (io == NULL || buf == NULL || n == 0)
     {
-        return -1;
+        return -EINVAL;
     }
 
     // Find the file descriptor
@@ -396,7 +396,7 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
  */
 int fs_getlen(file_t *fd, void *arg){
     if (fd == NULL || arg == NULL){
-        return -1;
+        return -EINVAL;
     }
     *(uint64_t*)arg = fd->file_size;
     return 0;
@@ -420,7 +420,7 @@ int fs_getlen(file_t *fd, void *arg){
  */
 int fs_getpos(file_t *fd, void *arg){
     if (fd == NULL || arg == NULL){
-        return -1;
+        return -EINVAL;
     }
     *(uint64_t *)arg = fd->file_pos;
     return 0;
@@ -445,7 +445,7 @@ int fs_getpos(file_t *fd, void *arg){
 int fs_setpos(file_t *fd, void *arg)
 {
     if (fd == NULL || arg == NULL){
-        return -1;
+        return -EINVAL;
     }
     uint64_t *set_position = (uint64_t *)arg;
     if (*set_position <= fd->file_size){
@@ -473,7 +473,7 @@ int fs_setpos(file_t *fd, void *arg)
  */
 int fs_getblksz(file_t *fd, void *arg){
     if (fd == NULL || arg == NULL){
-        return -1; 
+        return -EINVAL; 
     }
     *(uint32_t *)arg = BLOCK_SIZE;
     return 0; 
@@ -498,7 +498,7 @@ int fs_getblksz(file_t *fd, void *arg){
  */
 int fs_ioctl(struct io_intf *io, int cmd, void *arg){
     if (io == NULL || arg == NULL){
-        return -1; 
+        return -EINVAL; 
     }
 
     file_t *ioctl_fd =  (void *)io - offsetof(file_t, io);
@@ -513,9 +513,9 @@ int fs_ioctl(struct io_intf *io, int cmd, void *arg){
         case IOCTL_GETBLKSZ:
             return fs_getblksz(ioctl_fd, arg);
         default:
-            return -1;
+            return -ENOTSUP;
         }
     }
 
-    return -1;
+    return -EINVAL;
 }

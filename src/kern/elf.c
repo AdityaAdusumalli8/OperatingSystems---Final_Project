@@ -70,30 +70,30 @@ int elf_load(struct io_intf *io, void (**entryptr)(void)){
     // Also verify 64 bit arch, little-endian
     if(hdr.e_ident[0] != ELFMAG0 || hdr.e_ident[1] != ELFMAG1 || hdr.e_ident[2] != ELFMAG2 || hdr.e_ident[3] != ELFMAG3){
       //Incorrect magic number!
-      return -1;
+      return -EINVAL;
     }
     else if(hdr.e_ident[4] != ELFCLASS64){
       //Wrong architecture class!
-      return -2;
+      return -EINVAL;
     }
     else if(hdr.e_ident[5] != ELFDATA2LSB){
       //Wrong data encoding!
-      return -3;
+      return -EINVAL;
     }
     else if(hdr.e_ident[7] != 0 && hdr.e_ident[7] != 1){
       //Not for UNIX!
-      return -4;
+      return -EINVAL;
     }
     
     // Check e_type in header, ensure is ET_EXEC (executable)
     // Verify e_machine = EM_RISCV
     if(hdr.e_type != ET_EXEC){
       //Not an executable!
-      return -5;
+      return -EINVAL;
     }
     else if(hdr.e_machine != EM_RISCV){
       //Not for RISC-V processor!
-      return -6;
+      return -EINVAL;
     }
     
     // At this point, the file is valid, and should be loaded
@@ -109,7 +109,7 @@ int elf_load(struct io_intf *io, void (**entryptr)(void)){
       long bytes_read = ioread(io, &phdr, sizeof(Elf64_Phdr));
       // Ensure we read the whole header
       if(bytes_read < sizeof(Elf64_Phdr)){
-        return -100 + bytes_read - sizeof(Elf64_Phdr);
+        return -EINVAL;
       }
       // Ensure that the data is loadable into memory
       if(phdr.p_type != PT_LOAD){
@@ -119,7 +119,7 @@ int elf_load(struct io_intf *io, void (**entryptr)(void)){
       // Bounds checking
       if(phdr.p_vaddr < USER_START_VMA || phdr.p_vaddr + phdr.p_memsz >= USER_END_VMA){
         // Out of bounds error!
-        return -8;
+        return -EINVAL;
       }
 
       // Move io object to point to the data to copy

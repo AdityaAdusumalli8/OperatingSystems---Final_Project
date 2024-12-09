@@ -644,10 +644,10 @@ static inline void sfence_vma(void) {
 // Returns 0 on success, -1 on invalid.
 static inline int verify_flags(uint64_t flags){
     if((flags & PTE_V) == 0){
-        return -1;
+        return -EACCESS;
     }
     if(((flags & PTE_R) == 0) && ((flags & PTE_W) != 0)){
-        return -1;
+        return -EACCESS;
     }
 
     return 0;

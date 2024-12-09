@@ -393,14 +393,14 @@ int thread_join(int tid) {
     trace("%s(tid=%d)", __func__, tid);
 
     if (tid <= 0 || NTHR <= tid)
-        return -1;
+        return -EINVAL;
 
     trace("%s(tid=%d) in %s", __func__, tid, CURTHR->name);
 
     // Can only wait for child if we're the parent
 
     if (child == NULL || child->parent != CURTHR)
-        return -1;
+        return -EINVAL;
     
     // Wait for child to exit. Whenever a child exits, it signals its parent's
     // child_exit condition.
