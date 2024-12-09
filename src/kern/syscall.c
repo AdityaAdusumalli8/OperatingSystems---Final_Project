@@ -61,7 +61,7 @@ int64_t syscall(struct trap_frame * tfr){
         case SYSCALL_FORK:
             return sysfork(tfr);
         case SYSCALL_USLEEP:
-            return syswait((int)(regs[TFR_A0]));
+            return sysusleep((int)(regs[TFR_A0]));
         case SYSCALL_WAIT:
             return syswait((unsigned long)(regs[TFR_A0]));
         default:
@@ -224,11 +224,10 @@ static int sysfork(const struct trap_frame * tfr){
 
 static int sysusleep(unsigned long us){
     //TODO CP3: sysusleep
-    // Create alarm instance
     struct alarm al;
     // Use function from timer.h to sleep 
     alarm_init(&al, "syslusleep");
-    alarm_sleep_us(&al,us);
+    alarm_sleep_us(&al,us * 10);
     // Return 0 if success
     return 0;
 }
