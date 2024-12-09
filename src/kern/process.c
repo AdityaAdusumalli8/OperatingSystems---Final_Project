@@ -114,19 +114,14 @@ int process_fork(struct trap_frame * tfr){
     uintptr_t new_mtag = memory_space_clone(0);
     new_process->mtag = new_mtag;
 
-    kprintf("cloning current process\n");
     struct process * process = current_process();
-    kprintf("got current process\n");
     for(int i = 0; i < PROCESS_IOMAX; i++){
         new_process->iotab[i] = process->iotab[i];
         if(process->iotab[i] != NULL){
-            kprintf("ioref %d\n", i);
             ioref(process->iotab[i]);
         }
     }
-    kprintf("calling fork to user\n");
-    int child_tid = thread_fork_to_user(new_process, tfr);
-    kprintf("thread fork returned\n");
+    thread_fork_to_user(new_process, tfr);
     return new_pid;
 }
 

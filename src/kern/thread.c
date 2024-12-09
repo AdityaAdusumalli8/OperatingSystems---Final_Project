@@ -167,7 +167,7 @@ static void idle_thread_func(void * arg);
 extern struct thread * _thread_swtch(struct thread * resuming_thread);
 
 extern void _thread_setup (
-    struct thread * thr, void * ksp, void (*start)(void), ...);
+    struct thread * thr, void * ksp, void (*start)(void *), ...);
 
 extern void __attribute__ ((noreturn)) _thread_finish_jump (
     const struct thread_stack_anchor * stack_anchor,
@@ -280,7 +280,7 @@ void thread_jump_to_user(uintptr_t usp, uintptr_t upc) {
  *  Allocates thread structure and stack page for the child thread. Changes the current memory mapping 
  *  to the child's memory space.  
  */
-extern int thread_fork_to_user(struct process * child_proc, const struct trap_frame * parent_tfr){
+int thread_fork_to_user(struct process * child_proc, const struct trap_frame * parent_tfr){
     // TODO CP3: fix me
     struct thread_stack_anchor * stack_anchor;
     void * stack_page;
@@ -507,7 +507,7 @@ void init_idle_thread(void) {
     extern char _idle_stack_lowest[]; // from thrasm.s
 
     extern void _thread_setup (
-        struct thread * thr, void * sp, void (*start)(void), ...);
+        struct thread * thr, void * sp, void (*start)(void *), ...);
 
     idle_thread.stack_base = _idle_stack_anchor;
     idle_thread.stack_size = _idle_stack_anchor - _idle_stack_lowest;

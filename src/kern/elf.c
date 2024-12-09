@@ -126,7 +126,7 @@ int elf_load(struct io_intf *io, void (**entryptr)(void)){
       ioseek(io, phdr.p_offset);
       // Read data from io object into memory at mem pointer
       memory_alloc_and_map_range(phdr.p_vaddr, phdr.p_memsz, (PTE_R | PTE_W | PTE_X | PTE_U));
-      long bytes_to_vaddr = ioread(io, (void *)phdr.p_vaddr, phdr.p_filesz);
+      ioread(io, (void *)phdr.p_vaddr, phdr.p_filesz);
       memset((void *)phdr.p_vaddr + phdr.p_filesz, 0, phdr.p_memsz - phdr.p_filesz);
     }
 

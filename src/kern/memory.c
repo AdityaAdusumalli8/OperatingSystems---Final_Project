@@ -135,12 +135,11 @@ void memory_init(void) {
     const void * const rodata_start = _kimg_rodata_start;
     const void * const rodata_end = _kimg_rodata_end;
     const void * const data_start = _kimg_data_start;
-    union linked_page * page;
     void * heap_start;
     void * heap_end;
     size_t page_cnt;
     uintptr_t pma;
-    const void * pp;
+    void * pp;
 
     trace("%s()", __func__);
 
@@ -179,17 +178,17 @@ void memory_init(void) {
     main_pt1_0x80000[VPN1(RAM_START_PMA)] =
         ptab_pte(main_pt0_0x80000, PTE_G);
 
-    for (pp = text_start; pp < text_end; pp += PAGE_SIZE) {
+    for (pp = (void *)text_start; pp < text_end; pp += PAGE_SIZE) {
         main_pt0_0x80000[VPN0((uintptr_t)pp)] =
             leaf_pte(pp, PTE_R | PTE_X | PTE_G);
     }
 
-    for (pp = rodata_start; pp < rodata_end; pp += PAGE_SIZE) {
+    for (pp = (void *)rodata_start; pp < rodata_end; pp += PAGE_SIZE) {
         main_pt0_0x80000[VPN0((uintptr_t)pp)] =
             leaf_pte(pp, PTE_R | PTE_G);
     }
 
-    for (pp = data_start; pp < RAM_START + MEGA_SIZE; pp += PAGE_SIZE) {
+    for (pp = (void *)data_start; pp < RAM_START + MEGA_SIZE; pp += PAGE_SIZE) {
         main_pt0_0x80000[VPN0((uintptr_t)pp)] =
             leaf_pte(pp, PTE_R | PTE_W | PTE_G);
     }
@@ -296,7 +295,7 @@ void * memory_alloc_and_map_page(uintptr_t vma, uint_fast8_t rwxug_flags) {
 
 
     // Allocate a physical page
-    struct pte * entry = walk_pt(active_space_root(), vma, 1);
+    walk_pt(active_space_root(), vma, 1);
     memory_set_page_flags((void * )vma, rwxug_flags);
     sfence_vma();
 
@@ -337,11 +336,9 @@ void memory_set_range_flags(const void * vp, size_t size, uint_fast8_t rwxug_fla
 void memory_unmap_and_free_user(void) {
     trace("%s()", __func__);
 
-    struct pte * root = active_space_root();
-
     // Unmap and free all user pages
     for(uintptr_t vma = USER_START_VMA; vma < USER_END_VMA; vma += PAGE_SIZE){
-        int user = unmap_user_page(vma);
+        unmap_user_page(vma);
         //TODO CP3: maybe unmap intermediate page tables
     }
     sfence_vma();
@@ -662,15 +659,16 @@ static inline int verify_flags(uint64_t flags){
 static inline int unmap_user_page(uintptr_t vma){
     struct pte* page = walk_pt(active_space_root(), vma, 0);
     if(page == NULL){
-        return;
+        return -EINVAL;
     }
     if(!(page->flags & (PTE_U))){
-        return;
+        return -EACCESS;
     }
     uintptr_t ppn = (uintptr_t)page->ppn;
     void* pp = pagenum_to_pageptr(ppn);
     memory_free_page(pp);
     *page = null_pte();
+    return 0;
 }
 
 struct pte* walk_pt(struct pte* root, uintptr_t vma, int create){
@@ -706,7 +704,6 @@ struct pte* walk_pt(struct pte* root, uintptr_t vma, int create){
 
     struct pte* pt0 = (struct pte*)pagenum_to_pageptr(pt0_ppn);
 
-    uintptr_t ppn = pt0[VPN0(vma)].ppn;
     uintptr_t flags = pt0[VPN0(vma)].flags;
 
     if(verify_flags(flags) != 0){
@@ -716,7 +713,6 @@ struct pte* walk_pt(struct pte* root, uintptr_t vma, int create){
         void * pma = memory_alloc_page();
         memset(pma, 0, PAGE_SIZE);
         pt0[VPN0(vma)] = leaf_pte(pma, PTE_R);
-        ppn = pt0[VPN0(vma)].ppn;
     }
 
     // kprintf("walked vma: %x, found ppn %lx\n", vma, pt0[VPN0(vma)].ppn);

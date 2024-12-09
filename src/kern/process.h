@@ -16,13 +16,6 @@
 // EXPORTED TYPE DEFINITIONS
 //
 
-struct process {
-    int id; // process id of this process
-    int tid; // thread id of associated thread
-    uintptr_t mtag; // memory space identifier
-    struct io_intf * iotab[PROCESS_IOMAX];
-};
-
 // EXPORTED VARIABLES DECLARATIONS
 //
 

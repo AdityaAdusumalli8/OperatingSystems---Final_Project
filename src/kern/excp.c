@@ -58,7 +58,7 @@ void umode_excp_handler(unsigned int code, struct trap_frame * tfr) {
     switch (code) {
     // TODO: FIXME dispatch to various U mode exception handlers
     case RISCV_SCAUSE_STORE_PAGE_FAULT:
-        memory_handle_page_fault(csrr_stval());
+        memory_handle_page_fault((void *)csrr_stval());
         break;
     case RISCV_SCAUSE_ECALL_FROM_UMODE:
         syscall_handler(tfr);

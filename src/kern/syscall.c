@@ -51,7 +51,7 @@ int64_t syscall(struct trap_frame * tfr){
         case SYSCALL_CLOSE:
             return sysclose((int)(regs[TFR_A0]));
         case SYSCALL_READ:
-            return sysread((int)(regs[TFR_A0]), (const void*)(regs[TFR_A1]), (size_t)(regs[TFR_A2]));
+            return sysread((int)(regs[TFR_A0]), (void*)(regs[TFR_A1]), (size_t)(regs[TFR_A2]));
         case SYSCALL_WRITE:
             return syswrite((int)(regs[TFR_A0]), (const void*)(regs[TFR_A1]), (size_t)(regs[TFR_A2]));
         case SYSCALL_IOCTL:
@@ -216,6 +216,7 @@ static int sysexec(int fd){
     process->iotab[fd] = NULL;
 
     process_exec(exeio);
+    return -EINVAL;
 }
 
 /**
@@ -235,7 +236,7 @@ static int sysexec(int fd){
  */
 static int sysfork(const struct trap_frame * tfr){
     //TODO CP3: do this
-    int child_id = process_fork(tfr);
+    int child_id = process_fork((struct trap_frame *)tfr);
     return child_id;
 }
 

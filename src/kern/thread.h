@@ -25,6 +25,17 @@ struct condition {
 	struct thread_list wait_list;
 };
 
+#ifndef PROCESS_IOMAX
+#define PROCESS_IOMAX 16
+#endif
+
+struct process {
+    int id; // process id of this process
+    int tid; // thread id of associated thread
+    uintptr_t mtag; // memory space identifier
+    struct io_intf * iotab[PROCESS_IOMAX];
+};
+
 // EXPORTED GLOBAL VARIABLES
 // 
 
@@ -72,6 +83,7 @@ extern void thread_exit(void) __attribute__ ((noreturn));
 extern void __attribute__ ((noreturn)) thread_jump_to_user (
     uintptr_t usp, uintptr_t upc);
 
+extern int thread_fork_to_user(struct process * child_proc, const struct trap_frame * parent_tfr);
 
 // Returns a pointer to the process struct of a thread's process, or NULL if the
 // specified thread does not have an associated process (e.g. idle).
