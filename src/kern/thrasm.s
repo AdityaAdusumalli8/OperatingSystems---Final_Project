@@ -134,6 +134,24 @@ _thread_finish_jump:
 # extern void _thread_finish_fork (
 #       struct thread * child, const struct trap_frame * parent_tfr);
 
+/**
+ * Name: thread_finish_fork
+ * 
+ * Inputs:
+ *  struct thread *child - Pointer to the child thread structure.
+ *  const struct trap_frame *parent_tfr - Trap frame of the parent process to be copied for the child.
+ * 
+ * Outputs:
+ *  None.
+ * 
+ * Purpose:
+ *  Completes the fork by setting up the child thread’s context, restoring its trap frame, 
+ *  and jumping to user mode.
+ * 
+ * Side effects:
+ *  Saves current thread state, switches memory to the child’s space, restores trap frame, 
+ *  and performs a context switch to user mode.
+ */
 _thread_finish_fork:
         # TODO CP3: do this function
 

@@ -434,6 +434,22 @@ void memory_space_reclaim(void) {
     memory_free_page(old_root);
 }
 
+/**
+ * Name: memory_space_clone
+ *
+ * Inputs:
+ *  uint_fast16_t asid - Address space identifier 
+ *
+ * Outputs:
+ *  uintptr_t - The new memory space tag representing the cloned memory space.
+ *
+ * Purpose:
+ *  Duplicates the current process’s memory space, creating an independent copy for the child process.
+ *
+ * Side effects:
+ *  Allocates page tables and memory pages and copy memory from parent to child. Ensures
+ *  proper mappings in the child’s memory space.
+ */
 uintptr_t memory_space_clone(uint_fast16_t asid){
     // TODO CP3: may need to not copy g flags?
     uintptr_t new_mtag = 0;
