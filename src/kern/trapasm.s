@@ -188,8 +188,8 @@ _trap_entry_from_umode:
 
         restore_sstatus_and_sepc
 
-        csrr  t6, sscratch
-        sd    tp, 0(t6)
+        # csrr  t6, sscratch
+        sd    tp, 34*8(sp)
 
         restore_gprs_except_t6_and_sp
 

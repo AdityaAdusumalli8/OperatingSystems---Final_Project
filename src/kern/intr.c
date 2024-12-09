@@ -105,8 +105,9 @@ void intr_handler(int code, struct trap_frame * tfr) {
 
     // If we were running user mode, yield thread.
 
-    if ((tfr->sstatus & RISCV_SSTATUS_SPP) == 0)
+    if ((tfr->sstatus & RISCV_SSTATUS_SPP) == 0){
         thread_yield();
+    }
 }
 
 // INTERNAL FUNCTION DEFINITIONS

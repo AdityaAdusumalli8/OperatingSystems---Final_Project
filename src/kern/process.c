@@ -68,6 +68,8 @@ void procmgr_init(void){
 int process_exec(struct io_intf *exeio){
     memory_unmap_and_free_user();
     void (*entryptr)(void);
+    // uintptr_t new_mtag = memory_space_create(0);
+    // memory_space_switch(new_mtag);
     int status = elf_load(exeio, &entryptr);
     if(status < 0){
         panic("ELF_LOAD FAILED!!!!!!!");
@@ -101,7 +103,6 @@ int process_fork(struct trap_frame * tfr){
             ioref(process->iotab[i]);
         }
     }
-
     int child_tid = thread_fork_to_user(new_process, tfr);
     kprintf("thread fork returned\n");
     return new_pid;

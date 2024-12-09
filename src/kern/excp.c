@@ -76,6 +76,10 @@ void default_excp_handler (
 
     if (0 <= code && code < sizeof(excp_names)/sizeof(excp_names[0]))
 		name = excp_names[code];
+
+    // while(1){
+
+    // }
 	
 	if (name == NULL)
 		kprintf("Exception %d at %p\n", code, (void*)tfr->sepc);

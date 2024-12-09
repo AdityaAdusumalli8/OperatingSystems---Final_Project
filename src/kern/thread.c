@@ -305,9 +305,15 @@ extern int thread_fork_to_user(struct process * child_proc, const struct trap_fr
 
     saved_intr_state = intr_disable();
     tlinsert(&ready_list, CURTHR);
-    intr_restore(saved_intr_state);
+    kprintf("Forking 2\n");
     
+    memory_space_switch(child_proc->mtag);
+    kprintf("new space: %lx\n", csrr_satp());
+
+    csrw_sscratch(stack_anchor);
     _thread_finish_fork(child, parent_tfr);
+    krpinf("back in the parent\n");
+    intr_restore(saved_intr_state);
     return tid;
 }
 
@@ -568,6 +574,8 @@ void suspend_self(void) {
     prev_thread = _thread_swtch(next_thread);
 
     trace("_thread_swtch() returned in %s", CURTHR->name);
+
+    // kprintf("switched to thread: %s\n", CURTHR->name);
 
     if (prev_thread->state == THREAD_EXITED) {
         memory_free_page(prev_thread->stack_base - PAGE_SIZE);

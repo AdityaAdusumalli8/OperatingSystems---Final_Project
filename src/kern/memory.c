@@ -430,6 +430,7 @@ void memory_space_reclaim(void) {
 
     // Free the root page table of the old memory space
     struct pte* old_root = mtag_to_root(old_mtag);
+    kprintf("freeing root at %x\n", old_root->ppn);
     memory_free_page(old_root);
 }
 
@@ -450,8 +451,13 @@ uintptr_t memory_space_clone(uint_fast16_t asid){
         // Gigapages only exist in the kernel mapping, so
         // their page content does not need to be copied.
 
+        if((pt2_pte.flags & PTE_G) != 0){
+            continue;
+        }
+
         // Handle next pt level
-        if(pt2_pte.flags & (PTE_R | PTE_W | PTE_X) == 0){
+        if((pt2_pte.flags & (PTE_R | PTE_W | PTE_X)) == 0){
+            kprintf("not a gigapage!\n");
             struct pte * new_pt1 = (struct pte *)memory_alloc_page();
             new_root[i].ppn = pageptr_to_pagenum((void *)new_pt1);
             struct pte * pt1 = pagenum_to_pageptr(pt2_pte.ppn);
@@ -467,8 +473,13 @@ uintptr_t memory_space_clone(uint_fast16_t asid){
                 // Megapages only exist in the kernel mapping, so
                 // their page content does not need to be copied.
 
+                if((pt1_pte.flags & PTE_G) != 0){
+                    continue;
+                }
+
                 // Handle next pt level
-                if(pt1_pte.flags & (PTE_R | PTE_W | PTE_X) == 0){
+                if((pt1_pte.flags & (PTE_R | PTE_W | PTE_X)) == 0){
+                    kprintf("not a megapage!\n");
                     struct pte * new_pt0 = (struct pte *)memory_alloc_page();
                     new_pt1[j].ppn = pageptr_to_pagenum((void *) new_pt0);
                     struct pte * pt0 = pagenum_to_pageptr(pt1_pte.ppn);
@@ -482,16 +493,25 @@ uintptr_t memory_space_clone(uint_fast16_t asid){
 
                         new_pt0[k] = pt0_pte;
 
+                        if((pt0_pte.flags & PTE_G) != 0){
+                            continue;
+                        }
+
                         // Handle individual pages
                         void * pma = memory_alloc_page();
                         new_pt0[k].ppn = pageptr_to_pagenum(pma);
+                        // kprintf("allocing new leaf page\n");
+                        // kprintf("with vpn: %x\n", (((new_root[i].ppn & 0xFFF) << 18) | ((new_pt1[j].ppn & 0xFFF) << 9) | (new_pt0[k].ppn & 0xFFF)) << 12 );
+                        // kprintf("at pma %x\n", pma);
                         memcpy(pma, pagenum_to_pageptr(pt0_pte.ppn), PAGE_SIZE);
                     }
                 }
             }
         }
     }
-    new_mtag = (8 << 60) | ((uint64_t)asid << 44) | (pageptr_to_pagenum((void *)new_root));
+    new_mtag = ((uintptr_t)RISCV_SATP_MODE_Sv39 << RISCV_SATP_MODE_shift) | (pageptr_to_pagenum((void *)new_root));
+    kprintf("new mtag: %lx\n", new_mtag);
+    sfence_vma();
     return new_mtag;
 }
 
@@ -682,6 +702,8 @@ struct pte* walk_pt(struct pte* root, uintptr_t vma, int create){
         pt0[VPN0(vma)] = leaf_pte(pma, PTE_R);
         ppn = pt0[VPN0(vma)].ppn;
     }
+
+    // kprintf("walked vma: %x, found ppn %lx\n", vma, pt0[VPN0(vma)].ppn);
 
     return &(pt0[VPN0(vma)]);
 }

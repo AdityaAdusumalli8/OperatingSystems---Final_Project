@@ -152,6 +152,9 @@ _thread_finish_fork:
         sd      ra, 12*8(tp)
         sd      sp, 13*8(tp)
 
+        # loop:
+        # j loop
+
         mv      tp, a0
         la      a0, _trap_entry_from_umode
         csrw    stvec, a0
@@ -189,7 +192,6 @@ _thread_finish_fork:
         ld      x7, 7*8(t6)     # x7 is t2
         ld      x6, 6*8(t6)     # x6 is t1
         ld      x5, 5*8(t6)     # x5 is t0
-        ld      x4, 4*8(t6)     # x4 is tp
         ld      x3, 3*8(t6)     # x3 is gp
         ld      x1, 1*8(t6)     # x1 is ra
 
@@ -197,6 +199,8 @@ _thread_finish_fork:
         ld      x31, 31*8(t6)   # x31 is t6
 
         mv      a0, zero
+# loop:
+#         j       loop
         sret
 
 

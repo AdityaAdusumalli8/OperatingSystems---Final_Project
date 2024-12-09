@@ -72,6 +72,7 @@ int64_t syscall(struct trap_frame * tfr){
 }
 
 static int sysexit(void) {
+    kprintf("Process exiting.\n");
     process_exit();
 }
 
@@ -222,11 +223,13 @@ static int sysfork(const struct trap_frame * tfr){
 
 static int sysusleep(unsigned long us){
     //TODO CP3: sysusleep
+    kprintf("calling sysusleep\n");
     return 0;
 }
 
 static int syswait(int tid){
     // TODO CP3: yep and do syswait too
+    kprintf("calling syswait\n");
     return 0;
 }
 
