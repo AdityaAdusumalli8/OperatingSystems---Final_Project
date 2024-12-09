@@ -7,6 +7,7 @@
 #include "device.h"
 #include "process.h"
 #include "fs.h"
+#include "timer.h"
 
 const void syscall_handler(struct trap_frame * tfr);
 const int64_t syscall(struct trap_frame * tfr);
@@ -223,14 +224,26 @@ static int sysfork(const struct trap_frame * tfr){
 
 static int sysusleep(unsigned long us){
     //TODO CP3: sysusleep
-    kprintf("calling sysusleep\n");
+    // Create alarm instance
+    struct alarm al;
+    // Use function from timer.h to sleep 
+    alarm_init(&al, "syslusleep");
+    alarm_sleep_us(&al,us);
+    // Return 0 if success
     return 0;
 }
 
 static int syswait(int tid){
     // TODO CP3: yep and do syswait too
-    kprintf("calling syswait\n");
-    return 0;
+    // First check if tid is main thread. Then wait for any child to exit.
+    if (tid == 0){
+        return thread_join_any();
+    }
+    else{
+        // If tid is not main thread, wait for specific child to exit
+        return thread_join(tid);
+    }
+    return -1;
 }
 
 static long verify_fd(int fd){
