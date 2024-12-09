@@ -342,7 +342,7 @@ void memory_unmap_and_free_user(void) {
     // Unmap and free all user pages
     for(uintptr_t vma = USER_START_VMA; vma < USER_END_VMA; vma += PAGE_SIZE){
         int user = unmap_user_page(vma);
-        //TODO: unmap intermediate page tables
+        //TODO CP3: maybe unmap intermediate page tables
     }
     sfence_vma();
 }
@@ -410,6 +410,13 @@ void memory_handle_page_fault(const void * vptr) {
     }
 }
 
+uintptr_t memory_space_create(uint_fast16_t asid){
+    uintptr_t cur_mtag = memory_space_switch(main_mtag);
+    uintptr_t new_mtag = memory_space_clone(asid);
+    memory_space_switch(cur_mtag);
+    return new_mtag;
+}
+
 // Switches the active memory space to the main memory space and reclaims the
 // memory space that was active on entry. All physical pages mapped by a user
 // mapping are reclaimed.
@@ -427,8 +434,65 @@ void memory_space_reclaim(void) {
 }
 
 uintptr_t memory_space_clone(uint_fast16_t asid){
-    // TODO CP3: do this function
-    return 0;
+    // TODO CP3: may need to not copy g flags?
+    uintptr_t new_mtag = 0;
+    struct pte * new_root = (struct pte *)memory_alloc_page();
+    struct pte * root = active_space_root();
+    for(int i = 0; i < PTE_CNT; i++){
+        struct pte pt2_pte = root[i];
+        // If entry invalid, nothing to copy
+        if(verify_flags(pt2_pte.flags) != 0){
+            continue;
+        }
+
+        new_root[i] = pt2_pte;
+
+        // Gigapages only exist in the kernel mapping, so
+        // their page content does not need to be copied.
+
+        // Handle next pt level
+        if(pt2_pte.flags & (PTE_R | PTE_W | PTE_X) == 0){
+            struct pte * new_pt1 = (struct pte *)memory_alloc_page();
+            new_root[i].ppn = pageptr_to_pagenum((void *)new_pt1);
+            struct pte * pt1 = pagenum_to_pageptr(pt2_pte.ppn);
+
+            for(int j = 0; j < PTE_CNT; j++){
+                struct pte pt1_pte = pt1[j];
+                // If entry invalid, nothing to copy
+                if(verify_flags(pt1_pte.flags) != 0){
+                    continue;
+                }
+
+                new_pt1[j] = pt1_pte;
+                // Megapages only exist in the kernel mapping, so
+                // their page content does not need to be copied.
+
+                // Handle next pt level
+                if(pt1_pte.flags & (PTE_R | PTE_W | PTE_X) == 0){
+                    struct pte * new_pt0 = (struct pte *)memory_alloc_page();
+                    new_pt1[j].ppn = pageptr_to_pagenum((void *) new_pt0);
+                    struct pte * pt0 = pagenum_to_pageptr(pt1_pte.ppn);
+
+                    for(int k = 0; k < PTE_CNT; k++){
+                        struct pte pt0_pte = pt0[k];
+                        // If entry invalid, nothing to copy
+                        if(verify_flags(pt0_pte.flags) != 0){
+                            continue;
+                        }
+
+                        new_pt0[k] = pt0_pte;
+
+                        // Handle individual pages
+                        void * pma = memory_alloc_page();
+                        new_pt0[k].ppn = pageptr_to_pagenum(pma);
+                        memcpy(pma, pagenum_to_pageptr(pt0_pte.ppn), PAGE_SIZE);
+                    }
+                }
+            }
+        }
+    }
+    new_mtag = (8 << 60) | ((uint64_t)asid << 44) | (pageptr_to_pagenum((void *)new_root));
+    return new_mtag;
 }
 
 // INTERNAL FUNCTION DEFINITIONS

@@ -58,7 +58,7 @@ int64_t syscall(struct trap_frame * tfr){
         case SYSCALL_EXEC:
             return sysexec((int)(regs[TFR_A0]));
         case SYSCALL_FORK:
-            return sysfork((const struct trap_frame*)(regs[TFR_A0]));
+            return sysfork(tfr);
         case SYSCALL_USLEEP:
             return syswait((int)(regs[TFR_A0]));
         case SYSCALL_WAIT:

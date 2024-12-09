@@ -87,6 +87,11 @@ static inline uintptr_t active_memory_space(void);
 
 static inline uintptr_t memory_space_switch(uintptr_t mtag);
 
+// uintptr_t memory_space_clone(uint_fast16_t asid)
+// Clones the memory space of the currently running process and returns the
+// memory space tag of the new memory space.
+extern uintptr_t memory_space_clone(uint_fast16_t asid);
+
 // void * memory_alloc_page(void)
 // Allocates a physical page of memory. Returns a pointer to the direct-mapped
 // address of the page. Does not fail; panics if there are no free pages available.

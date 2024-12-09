@@ -6,6 +6,9 @@
 #include "thread.h"
 #include "console.h"
 #include "io.h"
+#include "heap.h"
+#include "trap.h"
+#include "thread.h"
 
 #ifdef PROCESS_TRACE
 #define TRACE
@@ -72,9 +75,37 @@ int process_exec(struct io_intf *exeio){
     process_exit();
 }
 
-int process_fork(struct process * process){
+int process_fork(struct trap_frame * tfr){
+    int new_pid;
+    for(new_pid = 0; new_pid < NPROC; new_pid++){
+        if(proctab[new_pid] == NULL){
+            break;
+        }
+    }
+    if(new_pid >= NPROC){
+        return -1;
+    }
+    struct process * new_process = (struct process *)kmalloc(sizeof(struct process));
+    new_process->id = new_pid;
+
     //TODO CP3: process fork here!
-    return 0;
+    uintptr_t new_mtag = memory_space_clone(0);
+    new_process->mtag = new_mtag;
+
+    struct process * process = current_process();
+    for(int i = 0; i < PROCESS_IOMAX; i++){
+        new_process->iotab[i] = process->iotab[i];
+        if(process->iotab[i] != NULL){
+            ioref(process->iotab[i]);
+        }
+    }
+
+    int new_thread = thread_spawn("child", tfr->sepc, NULL);
+    thread_set_process(new_thread, new_process);
+    new_process->tid = new_thread;
+
+    thread_fork_to_user(new_process, tfr);
+    return new_pid;
 }
 
 void process_exit(void){

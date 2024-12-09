@@ -173,6 +173,9 @@ extern void __attribute__ ((noreturn)) _thread_finish_jump (
     const struct thread_stack_anchor * stack_anchor,
     uintptr_t usp, uintptr_t upc, ...);
 
+extern void __attribute__ ((noreturn)) _thread_finish_fork (
+    struct thread * child, const struct trap_frame * parent_tfr);
+
 
 // EXPORTED FUNCTION DEFINITIONS
 //
@@ -260,6 +263,7 @@ void thread_jump_to_user(uintptr_t usp, uintptr_t upc) {
 
 extern int thread_fork_to_user(struct process * child_proc, const struct trap_frame * parent_tfr){
     // TODO CP3: fix me
+    _thread_finish_fork(thrtab[child_proc->tid], parent_tfr);
 }
 
 void thread_yield(void) {
