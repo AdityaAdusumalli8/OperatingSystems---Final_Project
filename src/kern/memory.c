@@ -470,7 +470,6 @@ uintptr_t memory_space_clone(uint_fast16_t asid){
 
         // Handle next pt level
         if((pt2_pte.flags & (PTE_R | PTE_W | PTE_X)) == 0){
-            kprintf("not a gigapage!\n");
             struct pte * new_pt1 = (struct pte *)memory_alloc_page();
             new_root[i].ppn = pageptr_to_pagenum((void *)new_pt1);
             struct pte * pt1 = pagenum_to_pageptr(pt2_pte.ppn);
@@ -492,7 +491,6 @@ uintptr_t memory_space_clone(uint_fast16_t asid){
 
                 // Handle next pt level
                 if((pt1_pte.flags & (PTE_R | PTE_W | PTE_X)) == 0){
-                    kprintf("not a megapage!\n");
                     struct pte * new_pt0 = (struct pte *)memory_alloc_page();
                     new_pt1[j].ppn = pageptr_to_pagenum((void *) new_pt0);
                     struct pte * pt0 = pagenum_to_pageptr(pt1_pte.ppn);
@@ -523,7 +521,6 @@ uintptr_t memory_space_clone(uint_fast16_t asid){
         }
     }
     new_mtag = ((uintptr_t)RISCV_SATP_MODE_Sv39 << RISCV_SATP_MODE_shift) | (pageptr_to_pagenum((void *)new_root));
-    kprintf("new mtag: %lx\n", new_mtag);
     sfence_vma();
     return new_mtag;
 }

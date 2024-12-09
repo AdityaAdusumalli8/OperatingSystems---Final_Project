@@ -319,23 +319,18 @@ int thread_fork_to_user(struct process * child_proc, const struct trap_frame * p
     set_thread_state(child, THREAD_RUNNING);
     set_thread_state(CURTHR, THREAD_READY);
 
-    kprintf("Forking\n");
     child_proc->tid = tid;
 
     saved_intr_state = intr_disable();
     tlinsert(&ready_list, CURTHR);
     intr_restore(saved_intr_state);
-
-    kprintf("Forking 2\n");
     
     memory_space_switch(child_proc->mtag);
-    kprintf("new space: %lx\n", csrr_satp());
 
     csrs_sstatus(RISCV_SSTATUS_SIE);
     csrc_sstatus(RISCV_SSTATUS_SPIE);
     
     _thread_finish_fork(child, parent_tfr);
-    kprintf("back in the parent\n");
     return tid;
 }
 
