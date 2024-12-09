@@ -22,7 +22,9 @@ ALL_TARGETS = \
 	bin/init_trek_rule30 \
 	bin/init_fib_rule30 \
 	bin/init_fib_fib \
-	bin/fib
+	bin/fib \
+	bin/refct \
+	bin/lock
 
 
 CFLAGS = -Wall -fno-omit-frame-pointer -ggdb -gdwarf-2
@@ -61,6 +63,12 @@ bin/init5: $(ULIB_OBJS) init5.o
 	$(LD) -T user.ld -o $@ $^
 
 bin/fib: $(ULIB_OBJS) fib.o
+	$(LD) -T user.ld -o $@ $^
+
+bin/refct: $(ULIB_OBJS) refct.o
+	$(LD) -T user.ld -o $@ $^
+
+bin/lock: $(ULIB_OBJS) lock.o
 	$(LD) -T user.ld -o $@ $^
 
 bin/init_trek_rule30: $(ULIB_OBJS) init_trek_rule30.o

@@ -373,6 +373,8 @@ long fs_read(struct io_intf *io, void *buf, unsigned long n)
         }
     }
     lock_release(&vioblk_lock);
+    // kprintf("read %d bytes\n", readBytes);
+    // kprintf("read %s\n", buf);
     return readBytes;
 }
 

@@ -176,6 +176,7 @@ static long sysread(int fd, void *buf, size_t bufsz){
 
     struct io_intf* devio = process->iotab[fd];
     long bytes_read = ioread(devio, buf, bufsz);
+    kprintf("Read %ld bytes from file.\n", bytes_read);
     return bytes_read;
 }
 
@@ -188,6 +189,7 @@ static long syswrite(int fd, const void *buf, size_t len){
 
     struct io_intf* devio = process->iotab[fd];
     long bytes_wrote = iowrite(devio, buf, len);
+    kprintf("Wrote %ld bytes to file.\n", bytes_wrote);
     return bytes_wrote;
 }
 
@@ -227,7 +229,7 @@ static int sysusleep(unsigned long us){
     struct alarm al;
     // Use function from timer.h to sleep 
     alarm_init(&al, "syslusleep");
-    alarm_sleep_us(&al,us * 10);
+    alarm_sleep_us(&al,us);
     // Return 0 if success
     return 0;
 }
