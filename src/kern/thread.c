@@ -261,6 +261,25 @@ void thread_jump_to_user(uintptr_t usp, uintptr_t upc) {
     _thread_finish_jump(CURTHR->stack_base, usp, upc);
 }
 
+/**
+ * Name: thread_fork_to_user
+ *
+ * Inputs:
+ *  struct process* - A pointer to the created child process structure
+ *  const struct trap_frame* - A pointer to the parent's trap frame containing child's execution state
+ *
+ * Outputs:
+ *  int - Returns the thread ID of the newly created thread for the child process.
+ *
+ * Purpose:
+ *  Sets up new thread context for the child proces and allocates memory stack. Prepare the thread
+ *  to start execution at the same user-mode point as parent. Calls an assembly helper function 
+ *  from child's memory space to finalize the fork and enter user mode.
+ *
+ * Side effects:
+ *  Allocates thread structure and stack page for the child thread. Changes the current memory mapping 
+ *  to the child's memory space.  
+ */
 extern int thread_fork_to_user(struct process * child_proc, const struct trap_frame * parent_tfr){
     // TODO CP3: fix me
     struct thread_stack_anchor * stack_anchor;

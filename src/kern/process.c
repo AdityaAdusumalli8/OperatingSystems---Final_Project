@@ -79,6 +79,24 @@ int process_exec(struct io_intf *exeio){
 }
 
 // Creates the child process without an associated thread
+
+/**
+ * Name: process_fork
+ *
+ * Inputs:
+ *  struct trap_frame * tfr - Pointer to the trap frame of the parent process.
+ *
+ * Outputs:
+ *  int - The process ID (pid) of the newly created child process, or -1 if the process table is full.
+ *
+ * Purpose:
+ *  Creates a new child process by duplicating the current process's memory space, I/O table, and
+ * the child process starts execution at the same point as the parent.
+ *
+ * Side effects:
+ *  Allocates a new process structure, clones the parent's memory space, and increments reference
+ *  counts for shared I/O resources. Calls `thread_fork_to_user` to initialize a new thread for the child process.
+ */
 int process_fork(struct trap_frame * tfr){
     int new_pid;
     for(new_pid = 0; new_pid < NPROC; new_pid++){

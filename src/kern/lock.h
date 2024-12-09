@@ -34,6 +34,22 @@ static inline void lock_init(struct lock * lk, const char * name) {
     lk->tid = -1;
 }
 
+/**
+ * Name: lock_acquire
+ *
+ * Inputs:
+ *  struct lock * lk - Pointer to the lock structure to acquire.
+ *
+ * Outputs:
+ *  void 
+ *
+ * Purpose:
+ *  Acquires sleep lock by waiting until it becomes available. The lock is tied to the thread
+ *  that successfully acquires it.
+ *
+ * Side effects:
+ *  Suspends the calling thread if lock in use. If lock available, update lock's state. 
+ */
 static inline void lock_acquire(struct lock * lk) {
     // TODO CP3: FIXME implement this
     // then use in vioblk and kfs drivers

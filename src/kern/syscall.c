@@ -216,12 +216,42 @@ static int sysexec(int fd){
     process_exec(exeio);
 }
 
+/**
+ * Name: sysfork
+ *
+ * Inputs:
+ * const struct trap_frame* - The trap frame of the currently running process at the time of the syscall.
+ *
+ * Outputs:
+ * int - Returns the PID of the newly created child process to the parent, and 0 to the child.
+ *
+ * Purpose:
+ * Invokes process_fork to create a new child process that continues execution at the same point.
+ *
+ * Side effects:
+ * Allocates a new process and thread for the child and updates process management data structures.
+ */
 static int sysfork(const struct trap_frame * tfr){
     //TODO CP3: do this
     int child_id = process_fork(tfr);
     return child_id;
 }
 
+/**
+ * Name: sysusleep
+ *
+ * Inputs:
+ *  unsigned long us - Number of microseconds to sleep.
+ *
+ * Outputs:
+ *  int - Return 0 on success
+ *
+ * Purpose:
+ *  Suspend current thread for the inputted time.
+ *
+ * Side effects:
+ *  Delays execution of the current thread for the inputted time.
+ */
 static int sysusleep(unsigned long us){
     //TODO CP3: sysusleep
     struct alarm al;
@@ -232,6 +262,23 @@ static int sysusleep(unsigned long us){
     return 0;
 }
 
+/**
+ * Name: syswait
+ *
+ * Inputs:
+ *  int tid - Thread ID to wait for
+ *
+ * Outputs:
+ *  int - 0 on success, -1 if fails.
+ *
+ * Purpose:
+ * If tid is main thread, wait for any child of current thread to exit. If not, wait for a specific
+ * child thread to exit.
+ *
+ * Side effects:
+ * If tid is main thread, call thread_join_any from thread.c. If not, call thread_join to wait for a 
+ * specific child thread. 
+ */
 static int syswait(int tid){
     // TODO CP3: yep and do syswait too
     // First check if tid is main thread. Then wait for any child to exit.
