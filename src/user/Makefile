@@ -16,14 +16,9 @@ ULIB_OBJS = \
 
 
 ALL_TARGETS = \
-	bin/trek \
-	bin/rule30 \
 	bin/init0 \
 	bin/init1 \
 	bin/init2 \
-	bin/init3 \
-	bin/init4 \
-	bin/init5 \
 	bin/init_trek_rule30 \
 	bin/init_fib_rule30 \
 	bin/init_fib_fib \

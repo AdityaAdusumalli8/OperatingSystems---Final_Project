@@ -280,8 +280,7 @@ void vioblk_attach(volatile struct virtio_mmio_regs * regs, int irqno) {
         return;
     }
 
-    char* name = "blk";
-    lock_init(&(vioblk_lock), strncat(name, (char)reg_status + '0', 1));
+    lock_init(&(vioblk_lock), "blk_lock");
  
     regs->status |= VIRTIO_STAT_DRIVER_OK;    
     // fence o,oi

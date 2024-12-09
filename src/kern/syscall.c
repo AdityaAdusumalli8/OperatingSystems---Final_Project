@@ -216,7 +216,8 @@ static int sysexec(int fd){
 
 static int sysfork(const struct trap_frame * tfr){
     //TODO CP3: do this
-    return 0;
+    int child_id = process_fork(tfr);
+    return child_id;
 }
 
 static int sysusleep(unsigned long us){

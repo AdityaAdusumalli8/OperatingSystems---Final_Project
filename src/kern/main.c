@@ -9,7 +9,7 @@
 #define DEBUG
 #endif
 
-#define INIT_PROC "fib" // name of init process executable
+#define INIT_PROC "init_fib_fib" // name of init process executable
 
 #include "console.h"
 #include "thread.h"
@@ -43,6 +43,7 @@ void main(void) {
     procmgr_init();
     timer_init();
 
+
     // Attach NS16550a serial devices
 
     for (i = 0; i < 3; i++) {
@@ -66,6 +67,7 @@ void main(void) {
     if (result != 0)
         panic("device_open failed");
     
+    fs_init();
     result = fs_mount(blkio);
 
     debug("Mounted blk0");

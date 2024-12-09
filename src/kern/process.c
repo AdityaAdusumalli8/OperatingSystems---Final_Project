@@ -9,6 +9,7 @@
 #include "heap.h"
 #include "trap.h"
 #include "thread.h"
+#include "halt.h"
 
 #ifdef PROCESS_TRACE
 #define TRACE
@@ -75,6 +76,7 @@ int process_exec(struct io_intf *exeio){
     process_exit();
 }
 
+// Creates the child process without an associated thread
 int process_fork(struct trap_frame * tfr){
     int new_pid;
     for(new_pid = 0; new_pid < NPROC; new_pid++){
@@ -100,11 +102,8 @@ int process_fork(struct trap_frame * tfr){
         }
     }
 
-    int new_thread = thread_spawn("child", tfr->sepc, NULL);
-    thread_set_process(new_thread, new_process);
-    new_process->tid = new_thread;
-
-    thread_fork_to_user(new_process, tfr);
+    int child_tid = thread_fork_to_user(new_process, tfr);
+    kprintf("thread fork returned\n");
     return new_pid;
 }
 

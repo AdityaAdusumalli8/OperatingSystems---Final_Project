@@ -263,7 +263,52 @@ void thread_jump_to_user(uintptr_t usp, uintptr_t upc) {
 
 extern int thread_fork_to_user(struct process * child_proc, const struct trap_frame * parent_tfr){
     // TODO CP3: fix me
-    _thread_finish_fork(thrtab[child_proc->tid], parent_tfr);
+    struct thread_stack_anchor * stack_anchor;
+    void * stack_page;
+    struct thread * child;
+    int saved_intr_state;
+    int tid;
+
+    // Find a free thread slot.
+
+    tid = 0;
+    while (++tid < NTHR)
+        if (thrtab[tid] == NULL)
+            break;
+    
+    if (tid == NTHR)
+        panic("Too many threads");
+    
+    // Allocate a struct thread and a stack
+
+    child = kmalloc(sizeof(struct thread));
+
+    stack_page = memory_alloc_page();
+    stack_anchor = stack_page + PAGE_SIZE;
+    stack_anchor -= 1;
+    stack_anchor->thread = child;
+    stack_anchor->reserved = 0;
+
+    thrtab[tid] = child;
+
+    child->id = tid;
+    child->name = "fork_child";
+    child->parent = CURTHR;
+    child->proc = child_proc;
+    child->stack_base = stack_anchor;
+    child->stack_size = child->stack_base - stack_page;
+    set_thread_state(child, THREAD_RUNNING);
+    set_thread_state(CURTHR, THREAD_READY);
+
+    kprintf("Forking\n");
+    child_proc->tid = tid;
+
+    saved_intr_state = intr_disable();
+    tlinsert(&ready_list, CURTHR);
+    intr_restore(saved_intr_state);
+    
+    _thread_finish_fork(child, parent_tfr);
+    return tid;
 }
 
 void thread_yield(void) {
