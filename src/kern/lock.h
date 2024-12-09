@@ -38,9 +38,15 @@ static inline void lock_acquire(struct lock * lk) {
     // TODO CP3: FIXME implement this
     // then use in vioblk and kfs drivers
     while(lk->tid >= 0){
+        kprintf("Thread <%s:%d> awaiting lock <%s:%p>",
+            thread_name(running_thread()), running_thread(),
+        lk->cond.name, lk);
         condition_wait(&lk->cond);
     }
 
+    kprintf("Thread <%s:%d> acquired lock <%s:%p>",
+        thread_name(running_thread()), running_thread(),
+        lk->cond.name, lk);
     lk->tid = running_thread();
 }
 
@@ -52,6 +58,9 @@ static inline void lock_release(struct lock * lk) {
     lk->tid = -1;
     condition_broadcast(&lk->cond);
 
+    kprintf("Thread <%s:%d> released lock <%s:%p>",
+        thread_name(running_thread()), running_thread(),
+        lk->cond.name, lk);
     debug("Thread <%s:%d> released lock <%s:%p>",
         thread_name(running_thread()), running_thread(),
         lk->cond.name, lk);

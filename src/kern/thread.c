@@ -173,7 +173,7 @@ extern void __attribute__ ((noreturn)) _thread_finish_jump (
     const struct thread_stack_anchor * stack_anchor,
     uintptr_t usp, uintptr_t upc, ...);
 
-extern void __attribute__ ((noreturn)) _thread_finish_fork (
+extern void  _thread_finish_fork (
     struct thread * child, const struct trap_frame * parent_tfr);
 
 
@@ -305,15 +305,18 @@ extern int thread_fork_to_user(struct process * child_proc, const struct trap_fr
 
     saved_intr_state = intr_disable();
     tlinsert(&ready_list, CURTHR);
+    intr_restore(saved_intr_state);
+
     kprintf("Forking 2\n");
     
     memory_space_switch(child_proc->mtag);
     kprintf("new space: %lx\n", csrr_satp());
 
-    csrw_sscratch(stack_anchor);
+    csrs_sstatus(RISCV_SSTATUS_SIE);
+    csrc_sstatus(RISCV_SSTATUS_SPIE);
+    
     _thread_finish_fork(child, parent_tfr);
-    krpinf("back in the parent\n");
-    intr_restore(saved_intr_state);
+    kprintf("back in the parent\n");
     return tid;
 }
 

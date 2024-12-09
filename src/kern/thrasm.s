@@ -152,6 +152,8 @@ _thread_finish_fork:
         sd      ra, 12*8(tp)
         sd      sp, 13*8(tp)
 
+        ld      t6, 15*8(a0)
+        csrw    sscratch, t6
         # loop:
         # j loop
 
